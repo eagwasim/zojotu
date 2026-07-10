@@ -22,14 +22,19 @@ jobs:
           script: |
             cd /var/www/zojotu
             
-            # Clone the repo if it doesn't exist, otherwise pull latest changes
-            if [ ! -d "zojotu_app" ]; then
-              git clone https://github.com/${{ github.repository }}.git zojotu_app
-            else
-              cd zojotu_app
-              git pull
-              cd ..
+            # Clean up old subfolders if they still exist to prevent confusion
+            rm -rf zojotu_app repo
+            
+            # Initialize git directly in the current directory if it hasn't been already
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/${{ github.repository }}.git
             fi
             
-            # Rebuild and restart the containers containerized
-            docker-compose up -d --build
+            # Fetch the latest code and forcefully align the directory with your main branch
+            git fetch --all
+            git reset --hard origin/main
+            
+            # Rebuild and restart the stack using the compose file in this folder
+            docker compose down
+            docker compose up -d --build
