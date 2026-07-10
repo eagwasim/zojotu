@@ -23,10 +23,10 @@ jobs:
             cd /var/www/zojotu
             
             # Clone the repo if it doesn't exist, otherwise pull latest changes
-            if [ ! -d "zojotu" ]; then
-              git clone https://github.com/${{ github.repository }}.git repo
+            if [ ! -d "zojotu_app" ]; then
+              git clone https://github.com/${{ github.repository }}.git zojotu_app
             else
-              cd zojotu
+              cd zojotu_app
               git pull
               cd ..
             fi
