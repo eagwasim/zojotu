@@ -198,7 +198,7 @@ export async function createServiceJob(data: {
         job.watchModel,
         job.issueDescription
       );
-      sendEmail({ to: adminEmail, subject: "New Service Request — Van Christaan", html, text }).catch(() => {});
+      sendEmail({ to: adminEmail, subject: "New Service Request — Zojotu", html, text }).catch(() => {});
     }
   }
 
@@ -274,7 +274,7 @@ export async function acceptServiceJob(id: number) {
     const customer = await getCustomerEmail(job.customerId);
     if (customer) {
       const { html, text } = serviceAcceptedEmail(customer.name, job.watchBrand, job.watchModel, shippingAddressPlain);
-      sendEmail({ to: customer.email, subject: "Service Request Accepted — Van Christaan", html, text }).catch(() => {});
+      sendEmail({ to: customer.email, subject: "Service Request Accepted — Zojotu", html, text }).catch(() => {});
     }
   }
 
@@ -300,7 +300,7 @@ export async function refuseServiceJob(id: number, reason: string) {
     const customer = await getCustomerEmail(job.customerId);
     if (customer) {
       const { html, text } = serviceRefusedEmail(customer.name, job.watchBrand, job.watchModel, reason);
-      sendEmail({ to: customer.email, subject: "Service Request Declined — Van Christaan", html, text }).catch(() => {});
+      sendEmail({ to: customer.email, subject: "Service Request Declined — Zojotu", html, text }).catch(() => {});
     }
   }
 
@@ -338,7 +338,7 @@ export async function updateServiceJobStatus(id: number, status: string) {
     const customer = await getCustomerEmail(job.customerId);
     if (customer) {
       const { html, text } = serviceStatusUpdateEmail(customer.name, job.watchBrand, job.watchModel, status);
-      sendEmail({ to: customer.email, subject: `Service Update: ${status} — Van Christaan`, html, text }).catch(() => {});
+      sendEmail({ to: customer.email, subject: `Service Update: ${status} — Zojotu`, html, text }).catch(() => {});
     }
   }
 

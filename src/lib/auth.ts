@@ -77,7 +77,7 @@ export async function authenticate(login: string, password: string) {
 }
 
 export async function ensureAdminExists() {
-  const adminEmail = "admin@vanchristaan.com";
+  const adminEmail = "admin@zojotu.com";
   const adminEmailHash = hashEmail(adminEmail);
 
   const [adminExists] = await db

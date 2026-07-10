@@ -41,7 +41,7 @@ export default function LandingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2">
             <Watch className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-foreground">Van Christaan</span>
+            <span className="text-xl font-bold text-foreground">Zojotu</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link
@@ -250,7 +250,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
             <Watch className="h-5 w-5 text-primary" />
-            <span className="font-semibold text-foreground">Van Christaan</span>
+            <span className="font-semibold text-foreground">Zojotu</span>
           </div>
           <p className="text-xs text-muted-foreground">
             A hobby watchmaker based in the Netherlands, helping people keep their watches running.

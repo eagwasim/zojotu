@@ -112,7 +112,7 @@ export default function PortalDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">My Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Welcome to Van Christaan service portal
+            Welcome to Zojotu service portal
           </p>
         </div>
         <Link href="/portal/jobs/new">

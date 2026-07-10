@@ -23,6 +23,8 @@ function createDatabase() {
     sqlite.pragma("journal_mode = WAL");
     sqlite.pragma("foreign_keys = ON");
 
+    console.log("Using SQLite");
+
     return drizzle(sqlite, { schema: sqliteSchema });
   } else {
     const postgres = require("postgres");
@@ -31,6 +33,7 @@ function createDatabase() {
     const connectionString =
       process.env.DATABASE_URL || "postgres://localhost:5432/van_christaan";
 
+    console.log("Using Postgres");
     const client = postgres(connectionString);
     return drizzle(client, { schema: pgSchema });
   }

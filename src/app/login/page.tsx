@@ -59,7 +59,7 @@ export default function LoginPage() {
             <Watch className="h-6 w-6 text-primary" />
           </motion.div>
           <h1 className="mt-4 text-xl font-bold text-foreground">
-            Van Christaan
+            Zojotu
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Sign in to your account

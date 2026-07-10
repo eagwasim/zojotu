@@ -8,7 +8,7 @@ export class MailgunProvider implements EmailProvider {
   constructor() {
     this.apiKey = process.env.MAILGUN_API_KEY || "";
     this.domain = process.env.MAILGUN_DOMAIN || "";
-    this.from = process.env.EMAIL_FROM || `Van Christaan <noreply@${this.domain}>`;
+    this.from = process.env.EMAIL_FROM || `Zojotu <noreply@${this.domain}>`;
   }
 
   async send(message: EmailMessage) {
@@ -20,6 +20,8 @@ export class MailgunProvider implements EmailProvider {
     form.append("subject", message.subject);
     form.append("html", message.html);
     if (message.text) form.append("text", message.text);
+
+    console.log(message);
 
     const res = await fetch(url, {
       method: "POST",
