@@ -9,7 +9,7 @@ COPY package.json package-lock.json* ./
 
 # Step 4: Install dependencies
 # Using npm ci is faster and more reliable for automated builds
-RUN npm ci
+RUN npm install
 
 # Step 5: Copy the rest of your application code
 COPY . .
