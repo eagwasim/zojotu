@@ -15,11 +15,11 @@ export function passwordResetEmail(resetUrl: string, displayName: string) {
         This link will expire in 1 hour. If you didn't request a password reset, you can ignore this email.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="color: #9a9a9a; font-size: 12px;">Van Christaan Watch Services</p>
+      <p style="color: #9a9a9a; font-size: 12px;">Zojotu Watch Services</p>
     </div>
   `;
 
-  const text = `Hi ${displayName},\n\nReset your password by visiting: ${resetUrl}\n\nThis link expires in 1 hour.\n\nVan Christaan Watch Services`;
+  const text = `Hi ${displayName},\n\nReset your password by visiting: ${resetUrl}\n\nThis link expires in 1 hour.\n\nZojotu Watch Services`;
 
   return { html, text };
 }

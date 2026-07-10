@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   await sendEmail({
     to: email,
-    subject: "Reset Your Password — Van Christaan",
+    subject: "Reset Your Password — Zojotu",
     html,
     text,
   });

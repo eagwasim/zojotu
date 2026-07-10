@@ -12,7 +12,7 @@ export function newServiceRequestAdminEmail(customerName: string, customerEmail:
         Log in to your admin panel to accept or refuse this request.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="color: #9a9a9a; font-size: 12px;">Van Christaan Watch Services</p>
+      <p style="color: #9a9a9a; font-size: 12px;">Zojotu Watch Services</p>
     </div>
   `;
   const text = `New Service Request\n\nCustomer: ${customerName} (${customerEmail})\nWatch: ${watchBrand} ${watchModel}\nIssue: ${issueDescription}\n\nLog in to your admin panel to review.`;

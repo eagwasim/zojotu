@@ -14,10 +14,10 @@ export function serviceAcceptedEmail(customerName: string, watchBrand: string, w
         Once shipped, you can track the progress in your portal.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="color: #9a9a9a; font-size: 12px;">Van Christaan Watch Services</p>
+      <p style="color: #9a9a9a; font-size: 12px;">Zojotu Watch Services</p>
     </div>
   `;
-  const text = `Hi ${customerName},\n\nYour service request for ${watchBrand} ${watchModel} has been accepted.\n\nPlease ship your watch to:\n${shippingAddress || "Address will be provided separately."}\n\nVan Christaan Watch Services`;
+  const text = `Hi ${customerName},\n\nYour service request for ${watchBrand} ${watchModel} has been accepted.\n\nPlease ship your watch to:\n${shippingAddress || "Address will be provided separately."}\n\nZojotu Watch Services`;
   return { html, text };
 }
 
@@ -36,10 +36,10 @@ export function serviceRefusedEmail(customerName: string, watchBrand: string, wa
         If you have questions, please contact us.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="color: #9a9a9a; font-size: 12px;">Van Christaan Watch Services</p>
+      <p style="color: #9a9a9a; font-size: 12px;">Zojotu Watch Services</p>
     </div>
   `;
-  const text = `Hi ${customerName},\n\nYour service request for ${watchBrand} ${watchModel} has been declined.\n\nReason: ${reason}\n\nVan Christaan Watch Services`;
+  const text = `Hi ${customerName},\n\nYour service request for ${watchBrand} ${watchModel} has been declined.\n\nReason: ${reason}\n\nZojotu Watch Services`;
   return { html, text };
 }
 
@@ -50,7 +50,7 @@ export function serviceStatusUpdateEmail(customerName: string, watchBrand: strin
     Diagnosed: "Your watch has been diagnosed. Check your portal for details.",
     "In Progress": "Work has begun on your watch.",
     Completed: "Your watch service is complete! It is ready for collection or return shipping.",
-    Collected: "Your watch has been collected/returned. Thank you for choosing Van Christaan.",
+    Collected: "Your watch has been collected/returned. Thank you for choosing Zojotu.",
   };
 
   const message = statusMessages[status] || `Your service status has been updated to: ${status}`;
@@ -70,9 +70,9 @@ export function serviceStatusUpdateEmail(customerName: string, watchBrand: strin
         View full details in your <a href="#" style="color: #2563eb;">service portal</a>.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-      <p style="color: #9a9a9a; font-size: 12px;">Van Christaan Watch Services</p>
+      <p style="color: #9a9a9a; font-size: 12px;">Zojotu Watch Services</p>
     </div>
   `;
-  const text = `Hi ${customerName},\n\nUpdate on your ${watchBrand} ${watchModel}:\n\nStatus: ${status}\n${message}\n\nVan Christaan Watch Services`;
+  const text = `Hi ${customerName},\n\nUpdate on your ${watchBrand} ${watchModel}:\n\nStatus: ${status}\n${message}\n\nZojotu Watch Services`;
   return { html, text };
 }

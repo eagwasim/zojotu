@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Van Christaan",
+  title: "Zojotu",
   description: "Watch flipping & modding business tracker",
 };
 

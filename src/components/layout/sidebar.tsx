@@ -52,7 +52,7 @@ export function Sidebar() {
         <Link href="/dashboard" className="flex items-center gap-2">
           <Watch className="h-5 w-5 text-primary" />
           <span className="text-lg font-semibold text-foreground">
-            Van Christaan
+            Zojotu
           </span>
         </Link>
       </div>
