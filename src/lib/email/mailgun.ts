@@ -14,6 +14,7 @@ export class MailgunProvider implements EmailProvider {
   }
 
   async send(message: EmailMessage) {
+
     const mailgun = new Mailgun(FormData);
     const mg = mailgun.client({
         username: "api",
@@ -28,6 +29,10 @@ export class MailgunProvider implements EmailProvider {
           subject: message.subject,
           html: message.html || message.text || " ",
         });
+
+    if (message.to == "admin@zojotu.com") {
+        console.log(message);
+      }
 
         return { success: true, messageId: data.id };
     } catch (error) {
