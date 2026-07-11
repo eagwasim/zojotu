@@ -1,0 +1,36 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main # Triggers on any PR targeting the main branch
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm' # Automatically caches node_modules for faster subsequent runs
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+
+      - name: Install Project Dependencies
+        run: npm install
+
+      # If you use Drizzle or other tools that validate types against schema/env variables,
+      # you can add a step here to validate your schema without a live database connection:
+      # - name: Check Database Schema
+      #   run: npx drizzle-kit check
+
+      - name: Build Next.js Application
+        run: npm run build
