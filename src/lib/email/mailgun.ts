@@ -26,7 +26,7 @@ export class MailgunProvider implements EmailProvider {
           from: this.from,
           to: [message.to],
           subject: message.subject,
-          html: message.html || message.text,
+          html: message.html || message.text || " ",
         });
 
         return { success: true, messageId: data.id };
@@ -34,32 +34,5 @@ export class MailgunProvider implements EmailProvider {
         console.error("[Mailgun] Send failed:", error);
         return { success: false };
     }
- //   const url = `https://api.eu.mailgun.net/v3/${this.domain}/messages`;
-
-   // const form = new URLSearchParams();
-   // form.append("from", this.from);
-   // form.append("to", message.to);
-   // form.append("subject", message.subject);
-   // form.append("html", message.html);
-  //  if (message.text) form.append("text", message.text);
-
-   // console.log(message);
-
-   // const res = await fetch(url, {
-   //   method: "POST",
-   //   headers: {
-   //     Authorization: `Basic ${Buffer.from(`api:${this.apiKey}`).toString("base64")}`,
-    //  },
-    //  body: form,
-    //});
-
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("[Mailgun] Send failed:", err);
-      return { success: false };
-    }
-
-    const data = await res.json();
-    return { success: true, messageId: data.id };
   }
 }
