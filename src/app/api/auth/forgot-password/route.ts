@@ -4,7 +4,7 @@ import { users, passwordResetTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { passwordResetEmail } from "@/lib/email/templates/password-reset";
-import { hashEmail } from "@/lib/crypto/pii";
+import { hashEmail, decryptPII } from "@/lib/crypto/pii";
 import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
