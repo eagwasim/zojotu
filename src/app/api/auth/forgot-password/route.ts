@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  user = decryptPII("users", user);
+  const userDecrypted = decryptPII("users", user);
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
-  const { html, text } = passwordResetEmail(resetUrl, user.displayName);
+  const { html, text } = passwordResetEmail(resetUrl, userDecrypted.displayName);
 
   await sendEmail({
     to: email,
