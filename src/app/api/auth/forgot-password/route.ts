@@ -12,11 +12,12 @@ export async function POST(request: NextRequest) {
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
+  const emailHashValue = hashEmail(email);
 
   const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(users.emailHash, emailHashValue))
     .limit(1);
 
   // Always return success to prevent email enumeration
