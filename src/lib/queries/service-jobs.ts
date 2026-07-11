@@ -317,7 +317,7 @@ export async function updateServiceJobStatus(id: number, status: string) {
 
   const updates: any = { status, updatedAt: new Date() };
   if (dateField[status]) {
-    updates[dateField[status]] = new Date();
+    updates[dateField[status]] = new Date().toISOString().split("T")[0];
   }
 
   const [job] = await db
