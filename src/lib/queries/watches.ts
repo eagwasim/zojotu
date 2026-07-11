@@ -181,7 +181,7 @@ export async function updateWatch(
 ) {
   const [watch] = await db
     .update(watches)
-    .set({ ...data, updatedAt: new Date().toISOString() })
+    .set({ ...data, updatedAt: new Date() })
     .where(eq(watches.id, id))
     .returning();
   return watch;

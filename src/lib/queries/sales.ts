@@ -81,7 +81,7 @@ export async function createSale(data: {
 
   await db
     .update(watches)
-    .set({ status: "Sold", updatedAt: new Date().toISOString() })
+    .set({ status: "Sold", updatedAt: new Date()})
     .where(eq(watches.id, data.watchId));
 
   return sale;
@@ -113,7 +113,7 @@ export async function deleteSale(id: number) {
     await db.delete(sales).where(eq(sales.id, id));
     await db
       .update(watches)
-      .set({ status: "Listed", updatedAt: new Date().toISOString() })
+      .set({ status: "Listed", updatedAt: new Date() })
       .where(eq(watches.id, sale.watchId));
   }
 }
