@@ -133,6 +133,7 @@ export const serviceJobs = pgTable("service_jobs", {
   dateCollected: text("date_collected"),
   technicianNotes: text("technician_notes"),
   warrantyPeriod: text("warranty_period"),
+  paymentInformation: text("payment_information"),
   isPaid: integer("is_paid").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

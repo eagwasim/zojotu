@@ -126,6 +126,7 @@ export const serviceJobs = sqliteTable("service_jobs", {
   dateCollected: text("date_collected"),
   technicianNotes: text("technician_notes"),
   warrantyPeriod: text("warranty_period"),
+  paymentInformation: text("payment_information"),
   isPaid: integer("is_paid").notNull().default(0),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),

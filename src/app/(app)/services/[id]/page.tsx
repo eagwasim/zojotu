@@ -33,6 +33,7 @@ interface ServiceJob {
   rejectionReason?: string;
   estimatedCost: number | null;
   finalCost: number | null;
+  paymentInformation?: string;
   shippingAddress?: string;
   trackingNumber?: string;
   trackingCarrier?: string;
@@ -193,6 +194,7 @@ export default function ServiceJobDetailPage() {
       await apiPut(`/api/service-jobs/${id}`, {
         estimatedCost: parseFloat(fd.get("estimatedCost") as string) || undefined,
         finalCost: parseFloat(fd.get("finalCost") as string) || undefined,
+        paymentInformation: fd.get("paymentInformation"),
       });
       toast("Costs updated", "success");
       setCostOpen(false);
@@ -311,6 +313,20 @@ export default function ServiceJobDetailPage() {
                 </button>
               </div>
             </div>
+            {job.paymentInformation && (
+              <div className="mt-4 space-y-2 border-t border-border pt-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Payment Details</span>
+                  {job.paymentInformation.startsWith('http') ? (
+                    <a href={job.paymentInformation} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px]">
+                      {job.paymentInformation}
+                    </a>
+                  ) : (
+                    <span className="font-mono text-foreground">{job.paymentInformation}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -495,8 +511,11 @@ export default function ServiceJobDetailPage() {
       {/* Cost Dialog */}
       <Dialog open={costOpen} onClose={() => setCostOpen(false)} title="Update Costs">
         <form onSubmit={handleUpdateCosts} className="space-y-4">
-          <Input label="Estimated Cost" name="estimatedCost" type="number" step="0.01" defaultValue={job.estimatedCost?.toString() || ""} />
-          <Input label="Final Cost" name="finalCost" type="number" step="0.01" defaultValue={job.finalCost?.toString() || ""} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Estimated Cost" name="estimatedCost" type="number" step="0.01" defaultValue={job.estimatedCost?.toString() || ""} />
+            <Input label="Final Cost" name="finalCost" type="number" step="0.01" defaultValue={job.finalCost?.toString() || ""} />
+          </div>
+          <Input label="Payment Information" name="paymentInformation" defaultValue={job.paymentInformation || ""} placeholder="IBAN or Payment Link (Stripe/PayPal)" />
           <div className="flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setCostOpen(false)}>Cancel</Button>
             <Button type="submit">Save</Button>
