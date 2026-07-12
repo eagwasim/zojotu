@@ -35,6 +35,7 @@ interface ServiceJob {
   dateCollected?: string;
   technicianNotes?: string;
   warrantyPeriod?: string;
+  paymentInformation?: string;
   isPaid: number;
   createdAt: string;
 }
@@ -200,6 +201,31 @@ export default function PortalJobDetailPage() {
                 {job.isPaid ? "Paid" : "Pending"}
               </span>
             </div>
+
+            {job.paymentInformation && !job.isPaid && (
+              <div className="mt-3 rounded-md bg-primary/5 p-3 border border-primary/10">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Payment Details</p>
+                {job.paymentInformation.startsWith("http") ? (
+                  <a
+                    href={job.paymentInformation}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    Pay Now
+                  </a>
+                ) : (
+                  <div className="rounded bg-muted p-2">
+                    <p className="font-mono text-xs text-foreground break-all select-all">
+                      {job.paymentInformation}
+                    </p>
+                  </div>
+                )}
+                <p className="mt-2 text-[10px] text-muted-foreground text-center">
+                  Please include Job #{job.id} as a reference
+                </p>
+              </div>
+            )}
           </div>
         </Card>
       </div>
