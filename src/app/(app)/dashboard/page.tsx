@@ -213,10 +213,7 @@ export default function DashboardPage() {
         <MarginInsights data={data.platformPerformance} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <BrandDistributionChart data={data.brandAnalytics.brandInventoryDistribution} />
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Inventory Status</h2>
-            <InventoryStatusChart data={data.watchesByStatus} />
-          </div>
+          <InventoryStatusChart data={data.watchesByStatus} />
         </div>
       </div>
         </>
