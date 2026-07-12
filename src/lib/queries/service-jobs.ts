@@ -338,7 +338,7 @@ export async function updateServiceJobStatus(id: number, status: string) {
     const customer = await getCustomerEmail(job.customerId);
     if (customer) {
       const { html, text } = serviceStatusUpdateEmail(customer.name, job.watchBrand, job.watchModel, status);
-      sendEmail({ to: customer.email, subject: `Service Update: ${status} — Zojotu`, html, text }).catch(() => {});
+      sendEmail({ to: customer.email, subject: `Service Update: ${status} - Zojotu`, html, text }).catch(() => {});
     }
   }
 

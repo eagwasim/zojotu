@@ -31,10 +31,12 @@ interface Sale {
 const PLATFORMS = [
   "Chrono24",
   "eBay",
+  "Etsy",
   "Facebook Marketplace",
   "Reddit (r/Watchexchange)",
   "Private Sale",
   "Instagram",
+  "Vinted",
   "Other",
 ];
 
