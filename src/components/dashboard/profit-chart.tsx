@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { formatCurrency } from "@/lib/utils";
 
 interface MonthlyProfit {
   month: string;
@@ -28,11 +29,11 @@ export function ProfitChart({ data }: { data: MonthlyProfit[] }) {
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-[350px] items-center justify-center text-sm text-muted-foreground">
             No sales data yet
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={350}>
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -74,6 +75,7 @@ export function ProfitChart({ data }: { data: MonthlyProfit[] }) {
                   borderRadius: "8px",
                   color: "oklch(0.95 0.01 260)",
                 }}
+                formatter={(value: any, name: any) => [formatCurrency(Number(value)), name.charAt(0).toUpperCase() + name.slice(1)]}
               />
               <Area
                 type="monotone"
