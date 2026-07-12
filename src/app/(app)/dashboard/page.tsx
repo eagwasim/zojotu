@@ -12,6 +12,7 @@ import { StagnatingInventory } from "@/components/dashboard/stagnating-inventory
 import { BrandProfitChart } from "@/components/dashboard/brand-profit-chart";
 import { BrandDistributionChart } from "@/components/dashboard/brand-distribution-chart";
 import { PlatformChart } from "@/components/dashboard/platform-chart";
+import { MarginInsights } from "@/components/dashboard/margin-insights";
 import { ServiceKPICards } from "@/components/dashboard/service-kpi-cards";
 import { formatCurrency } from "@/lib/utils";
 import type { DashboardKPIs } from "@/lib/queries/dashboard";
@@ -186,7 +187,6 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <ProfitChart data={data.monthlyProfits} />
-          <InventoryStatusChart data={data.watchesByStatus} />
         </div>
       </div>
 
@@ -205,16 +205,19 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Brand Analytics</h2>
+        <h2 className="text-lg font-semibold text-foreground">Brand & Platform Analysis</h2>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <BrandProfitChart data={data.brandAnalytics.mostProfitableBrands} />
-          <BrandDistributionChart data={data.brandAnalytics.brandInventoryDistribution} />
+          <PlatformChart data={data.platformPerformance} />
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Platform Performance</h2>
-        <PlatformChart data={data.platformPerformance} />
+        <MarginInsights data={data.platformPerformance} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <BrandDistributionChart data={data.brandAnalytics.brandInventoryDistribution} />
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Inventory Status</h2>
+            <InventoryStatusChart data={data.watchesByStatus} />
+          </div>
+        </div>
       </div>
         </>
       )}
