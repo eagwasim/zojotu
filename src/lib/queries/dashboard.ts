@@ -37,8 +37,11 @@ export interface PlatformPerformance {
     revenue: number;
     profit: number;
     fees: number;
+    margin: number;
   }[];
   bestPlatformByMargin: { platform: string; margin: number } | null;
+  totalFees: number;
+  feePercentage: number;
 }
 
 export interface ServiceKPIs {
@@ -247,21 +250,26 @@ export async function getDashboardKPIs(period?: {
 
   // Platform Performance
   const revenueByPlatform = Array.from(platformMap.entries())
-    .map(([platform, data]) => ({ platform, ...data }))
+    .map(([platform, data]) => ({
+      platform,
+      ...data,
+      margin: data.revenue > 0 ? data.profit / data.revenue : 0,
+    }))
     .sort((a, b) => b.revenue - a.revenue);
 
   let bestPlatformByMargin: PlatformPerformance["bestPlatformByMargin"] = null;
   if (revenueByPlatform.length > 0) {
     const best = revenueByPlatform.reduce((prev, curr) => {
-      const prevMargin = prev.revenue > 0 ? prev.profit / prev.revenue : 0;
-      const currMargin = curr.revenue > 0 ? curr.profit / curr.revenue : 0;
-      return currMargin > prevMargin ? curr : prev;
+      return curr.margin > prev.margin ? curr : prev;
     });
     bestPlatformByMargin = {
       platform: best.platform,
-      margin: best.revenue > 0 ? best.profit / best.revenue : 0,
+      margin: best.margin,
     };
   }
+
+  const totalFees = revenueByPlatform.reduce((sum, p) => sum + p.fees, 0);
+  const feePercentage = grossRevenue > 0 ? totalFees / grossRevenue : 0;
 
   // Service KPIs
   const allServiceJobs = await db.select().from(serviceJobs);
@@ -340,6 +348,8 @@ export async function getDashboardKPIs(period?: {
     platformPerformance: {
       revenueByPlatform,
       bestPlatformByMargin,
+      totalFees,
+      feePercentage,
     },
     serviceKPIs: {
       serviceRevenue,
