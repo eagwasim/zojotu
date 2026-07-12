@@ -56,6 +56,7 @@ export function PlatformChart({ data }: { data: PlatformPerformance }) {
                 stroke="oklch(0.65 0.12 160)"
                 fontSize={12}
                 tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                domain={[0, 'auto']}
               />
               <Tooltip
                 contentStyle={{
@@ -65,13 +66,13 @@ export function PlatformChart({ data }: { data: PlatformPerformance }) {
                   color: "oklch(0.95 0.01 260)",
                 }}
                 formatter={(value: any, name: any, props: any) => {
-                  if (name === "margin") return [formatPercentage(Number(value)), "Margin"];
-                  if (name === "fees") {
+                  if (props.dataKey === "margin") return [formatPercentage(Number(value)), "Margin"];
+                  if (props.dataKey === "fees") {
                     const rev = props.payload.revenue;
                     const feePct = rev > 0 ? (Number(value) / rev) : 0;
                     return [`${formatCurrency(Number(value))} (${formatPercentage(feePct)} of rev)`, "Fees"];
                   }
-                  return [formatCurrency(Number(value)), String(name).charAt(0).toUpperCase() + String(name).slice(1)];
+                  return [formatCurrency(Number(value)), String(name)];
                 }}
               />
               <Legend

@@ -185,7 +185,7 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold text-foreground">Sales Revenue</h2>
         <KPICards data={data} />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6">
           <ProfitChart data={data.monthlyProfits} />
         </div>
       </div>
