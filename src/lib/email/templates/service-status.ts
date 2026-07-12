@@ -76,3 +76,44 @@ export function serviceStatusUpdateEmail(customerName: string, watchBrand: strin
   const text = `Hi ${customerName},\n\nUpdate on your ${watchBrand} ${watchModel}:\n\nStatus: ${status}\n${message}\n\nZojotu Watch Services`;
   return { html, text };
 }
+
+export function servicePaymentEmail(
+  customerName: string,
+  watchBrand: string,
+  watchModel: string,
+  finalCost: number,
+  paymentInformation: string
+) {
+  const isLink = paymentInformation.startsWith('http');
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a1a1a;">Payment Details for Your Service</h2>
+      <p style="color: #4a4a4a;">Hi ${customerName},</p>
+      <p style="color: #4a4a4a;">
+        The service for your <strong>${watchBrand} ${watchModel}</strong> is ready for payment.
+      </p>
+      <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 10px; color: #64748b; font-size: 14px;">Total Amount Due</p>
+        <p style="margin: 0 0 20px; color: #1e293b; font-size: 24px; font-weight: 700;">€${finalCost.toFixed(2)}</p>
+        
+        ${isLink ? `
+        <a href="${paymentInformation}" style="display: inline-block; background: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-bottom: 20px;">
+          Pay Now
+        </a>
+        ` : `
+        <div style="margin-top: 10px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 0 0 5px; color: #64748b; font-size: 14px;">Payment Information (IBAN/Details)</p>
+          <p style="margin: 0; color: #1e293b; font-family: monospace; font-size: 16px; font-weight: 600;">${paymentInformation}</p>
+        </div>
+        `}
+      </div>
+      <p style="color: #6a6a6a; font-size: 14px;">
+        Once payment is confirmed, we will proceed with the next steps (collection or shipping).
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+      <p style="color: #9a9a9a; font-size: 12px;">Zojotu Watch Services</p>
+    </div>
+  `;
+  const text = `Hi ${customerName},\n\nThe service for your ${watchBrand} ${watchModel} is ready for payment.\n\nTotal Amount Due: €${finalCost.toFixed(2)}\n\nPayment Information: ${paymentInformation}\n\nZojotu Watch Services`;
+  return { html, text };
+}

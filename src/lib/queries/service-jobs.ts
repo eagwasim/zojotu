@@ -14,6 +14,7 @@ import {
   serviceAcceptedEmail,
   serviceRefusedEmail,
   serviceStatusUpdateEmail,
+  servicePaymentEmail,
 } from "../email/templates/service-status";
 import { newServiceRequestAdminEmail } from "../email/templates/new-request";
 
@@ -114,6 +115,7 @@ export async function getPaginatedServiceJobs(params: {
       dateCollected: serviceJobs.dateCollected,
       technicianNotes: serviceJobs.technicianNotes,
       warrantyPeriod: serviceJobs.warrantyPeriod,
+      paymentInformation: serviceJobs.paymentInformation,
       isPaid: serviceJobs.isPaid,
       createdAt: serviceJobs.createdAt,
       updatedAt: serviceJobs.updatedAt,
@@ -153,6 +155,7 @@ export async function getServiceJobById(id: number) {
       dateCollected: serviceJobs.dateCollected,
       technicianNotes: serviceJobs.technicianNotes,
       warrantyPeriod: serviceJobs.warrantyPeriod,
+      paymentInformation: serviceJobs.paymentInformation,
       isPaid: serviceJobs.isPaid,
       createdAt: serviceJobs.createdAt,
       updatedAt: serviceJobs.updatedAt,
@@ -221,6 +224,7 @@ export async function updateServiceJob(
     dateCollected: string;
     technicianNotes: string;
     warrantyPeriod: string;
+    paymentInformation: string;
     isPaid: number;
   }>
 ) {
@@ -229,6 +233,26 @@ export async function updateServiceJob(
     .set({ ...data, updatedAt: new Date() })
     .where(eq(serviceJobs.id, id))
     .returning();
+
+  if (job && data.finalCost && data.paymentInformation) {
+    const customer = await getCustomerEmail(job.customerId);
+    if (customer) {
+      const { html, text } = servicePaymentEmail(
+        customer.name,
+        job.watchBrand,
+        job.watchModel,
+        data.finalCost,
+        data.paymentInformation
+      );
+      sendEmail({
+        to: customer.email,
+        subject: `Payment Requested: ${job.watchBrand} ${job.watchModel} - Zojotu`,
+        html,
+        text,
+      }).catch(() => {});
+    }
+  }
+
   return job;
 }
 
