@@ -52,11 +52,14 @@ export function buttonClasses({
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant = "primary", size = "md", static: isStatic, ...props },
+    { className, variant = "primary", size = "md", static: isStatic, type = "button", ...props },
     ref
   ) => (
+    // Default to "button": inside a <form> the browser default is "submit", which made
+    // Cancel buttons submit. Submit buttons must say type="submit".
     <button
       ref={ref}
+      type={type}
       className={buttonClasses({ variant, size, isStatic, className })}
       {...props}
     />
