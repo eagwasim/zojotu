@@ -4,8 +4,11 @@ import { watchImages } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { saveImageLocally } from "@/lib/storage";
 import { requireAdmin } from "@/lib/authorize";
+import { fitImageToSize } from "@/lib/images/fit-to-size";
 import crypto from "crypto";
-const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+
+/** Largest upload accepted. Anything over 1 MB is resized down before it's stored. */
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 export async function GET(request: NextRequest) {
   const watchId = request.nextUrl.searchParams.get("watchId");
@@ -40,24 +43,24 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  const allowed: Record<string, string> = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-  };
-  if (!allowed[file.type]) {
+  const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowed.has(file.type)) {
     return NextResponse.json({ error: "Upload a JPEG, PNG or WebP image" }, { status: 400 });
   }
-  if (file.size > MAX_IMAGE_BYTES) {
+  if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "Images must be 15 MB or smaller" }, { status: 400 });
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  // Extension comes from the checked MIME type, never from the client's filename.
-  const ext = allowed[file.type];
-  const filename = `${crypto.randomUUID()}${ext}`;
+  let fitted;
+  try {
+    fitted = await fitImageToSize(Buffer.from(await file.arrayBuffer()), file.type);
+  } catch {
+    return NextResponse.json({ error: "That image couldn't be read or resized" }, { status: 400 });
+  }
+  // Extension comes from the stored format, never from the client's filename.
+  const filename = `${crypto.randomUUID()}${fitted.ext}`;
 
-  await saveImageLocally(buffer, filename);
+  await saveImageLocally(fitted.buffer, filename);
 
   const [image] = await db
     .insert(watchImages)
