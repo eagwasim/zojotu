@@ -43,6 +43,7 @@ const stageDot: Record<string, string> = {
   Modding: "bg-chart-4",
   Listed: "bg-chart-3",
   Sold: "bg-muted-foreground/50",
+  "Written off": "bg-critical",
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
@@ -50,7 +51,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
     <span
       className={cn(
         "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full bg-secondary pl-2 pr-2.5 text-xs font-medium text-secondary-foreground",
-        status === "Sold" && "text-muted-foreground",
+        (status === "Sold" || status === "Written off") && "text-muted-foreground",
         className
       )}
     >

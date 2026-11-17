@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, HandCoins, Pencil, Tag, Trash2 } from "lucide-react";
+import { ArrowLeft, Ban, HandCoins, Pencil, Tag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { StageStepper } from "@/components/watches/stage-stepper";
 import { WatchPhotos, type WatchImage } from "@/components/watches/watch-photos";
 import { WatchParts, type WatchPart } from "@/components/watches/watch-parts";
 import { ListWatchDialog } from "@/components/watches/list-watch-dialog";
+import { WriteOffDialog } from "@/components/watches/write-off-dialog";
 import { WatchFormSheet, type WatchRecord } from "@/components/watches/watch-form-sheet";
 import { RecordSaleSheet, type SaleRecord } from "@/components/sales/record-sale-sheet";
 import { apiDelete, apiPut } from "@/lib/api-client";
@@ -55,6 +56,7 @@ export default function WatchDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [saleOpen, setSaleOpen] = useState(false);
+  const [writeOffOpen, setWriteOffOpen] = useState(false);
   const [moving, setMoving] = useState(false);
 
   const load = useCallback(() => {
@@ -127,6 +129,7 @@ export default function WatchDetailPage() {
 
   const { economics: e } = watch;
   const sold = watch.status === "Sold";
+  const writtenOff = watch.status === "Written off";
   const listed = watch.status === "Listed";
   const rate = feeRateFor(fees, watch.listedPlatform);
   const expectedFee = listed && watch.askingPrice && rate !== null ? estimateFee(watch.askingPrice, rate) : 0;
@@ -134,7 +137,7 @@ export default function WatchDetailPage() {
   const daysListed = listed && watch.listedDate ? daysSince(watch.listedDate) : null;
 
   // The one thing to do next, by stage.
-  const primaryAction = sold ? null : listed ? (
+  const primaryAction = sold || writtenOff ? null : listed ? (
     <Button onClick={() => setSaleOpen(true)}>
       <HandCoins />
       Record sale
@@ -175,22 +178,50 @@ export default function WatchDetailPage() {
               <Pencil />
               Edit
             </Button>
+            {!sold && !writtenOff && (
+              <Button variant="ghost" onClick={() => setWriteOffOpen(true)} title="Broken beyond repair">
+                <Ban />
+                Write off
+              </Button>
+            )}
             {primaryAction}
             <IconButton aria-label="Delete watch" tone="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 />
             </IconButton>
           </div>
         </div>
-        <div className="rounded-xl bg-card p-2 shadow-card">
-          <StageStepper
-            status={watch.status}
-            acquisitionDate={watch.acquisitionDate}
-            listedDate={watch.listedDate}
-            soldDate={watch.sale?.saleDate}
-            onSelect={moveTo}
-            disabled={moving}
-          />
-        </div>
+        {writtenOff ? (
+          <div className="flex flex-col gap-3 rounded-xl bg-critical-wash p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 text-sm">
+              <p className="font-semibold text-critical-ink">
+                Written off{watch.writtenOffDate ? ` on ${formatDate(watch.writtenOffDate)}` : ""}
+              </p>
+              <p className="text-foreground">
+                {watch.writtenOffReason ? `${watch.writtenOffReason} · ` : ""}
+                {formatCurrency(e.totalCogs)} counted as a loss.
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setWriteOffOpen(true)}>
+                Edit
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => moveTo("In Inventory")} disabled={moving}>
+                Restore to stock
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-card p-2 shadow-card">
+            <StageStepper
+              status={watch.status}
+              acquisitionDate={watch.acquisitionDate}
+              listedDate={watch.listedDate}
+              soldDate={watch.sale?.saleDate}
+              onSelect={moveTo}
+              disabled={moving}
+            />
+          </div>
+        )}
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -208,7 +239,7 @@ export default function WatchDetailPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>{sold ? "Result" : listed ? "Listing" : "Cost so far"}</CardTitle>
+              <CardTitle>{sold || writtenOff ? "Result" : listed ? "Listing" : "Cost so far"}</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="flex flex-col gap-2 text-sm tabular-nums">
@@ -262,11 +293,15 @@ export default function WatchDetailPage() {
                   </>
                 )}
 
+                {writtenOff && (
+                  <Line label="Loss" value={formatCurrency(-e.totalCogs)} strong negative={e.totalCogs > 0} divider />
+                )}
+
                 <Line
                   label={sold ? "Days to sell" : daysListed !== null ? "Days listed" : "Days in stock"}
                   value={String(daysListed ?? e.daysInInventory)}
                   divider
-                  warn={!sold && (daysListed ?? e.daysInInventory) > 60}
+                  warn={!sold && !writtenOff && (daysListed ?? e.daysInInventory) > 60}
                 />
               </dl>
             </CardContent>
@@ -327,6 +362,13 @@ export default function WatchDetailPage() {
       <ListWatchDialog
         open={listOpen}
         onClose={() => setListOpen(false)}
+        watch={watch}
+        costBasis={e.totalCogs}
+        onSaved={load}
+      />
+      <WriteOffDialog
+        open={writeOffOpen}
+        onClose={() => setWriteOffOpen(false)}
         watch={watch}
         costBasis={e.totalCogs}
         onSaved={load}

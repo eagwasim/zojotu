@@ -5,7 +5,8 @@ import { bulkUpdateStatus } from "@/lib/queries/watches";
 
 /**
  * POST /api/watches/bulk-status { ids, status }
- * Sold watches are skipped: their status is owned by the sale record.
+ * Sold and written-off watches are skipped: sold is owned by the sale record, and a
+ * write-off is undone from the watch page.
  */
 export async function POST(request: NextRequest) {
   const denied = await requireAdmin();

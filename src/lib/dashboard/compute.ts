@@ -6,7 +6,8 @@
  *   fees         = platform fee + shipping & insurance
  *   cost basis   = purchase cost + parts
  *   gross profit = sale price − fees − cost basis          (per sale, src/lib/profit.ts)
- *   net profit   = gross profit − operating expenses in the period
+ *   write-offs   = cost basis of watches written off in the period (broken beyond repair)
+ *   net profit   = gross profit − operating expenses − write-offs in the period
  *   margin       = gross profit ÷ revenue
  */
 import { saleFees, saleProfit } from "../profit";
@@ -23,6 +24,7 @@ export interface WatchRow {
   askingPrice?: number | null;
   listedDate?: string | null;
   listedPlatform?: string | null;
+  writtenOffDate?: string | null;
 }
 export interface PartRow { watchId: number; cost: number }
 export interface SaleRow {
@@ -77,6 +79,9 @@ export interface ResellingTotals {
   cogs: number;
   grossProfit: number;
   opex: number;
+  /** Cost basis of watches written off in the period. */
+  writeOffs: number;
+  watchesWrittenOff: number;
   netProfit: number;
   /** null when there was no revenue. */
   margin: number | null;
@@ -92,6 +97,7 @@ export interface MonthPoint {
   fees: number;
   cogs: number;
   opex: number;
+  writeOffs: number;
   grossProfit: number;
   netProfit: number;
   sold: number;
@@ -241,6 +247,10 @@ export function computeDashboard(input: DashboardInput, range: DateRange | null)
     };
   });
 
+  const writtenOff = watches
+    .filter((w) => w.status === "Written off" && w.writtenOffDate)
+    .map((w) => ({ date: w.writtenOffDate!, loss: costBasis(w) }));
+
   const resellingTotals = (r: DateRange | null): ResellingTotals => {
     const facts = saleFacts.filter((f) => inRange(f.sale.saleDate, r));
     const revenue = facts.reduce((s, f) => s + f.sale.grossSalePrice, 0);
@@ -248,6 +258,8 @@ export function computeDashboard(input: DashboardInput, range: DateRange | null)
     const cogs = facts.reduce((s, f) => s + f.cogs, 0);
     const grossProfit = revenue - fees - cogs;
     const opex = expenses.filter((e) => inRange(e.date, r)).reduce((s, e) => s + e.amount, 0);
+    const lost = writtenOff.filter((x) => inRange(x.date, r));
+    const writeOffs = lost.reduce((s, x) => s + x.loss, 0);
     const days = facts.map((f) => f.daysToSell).filter((d): d is number => d !== null);
     return {
       revenue,
@@ -255,7 +267,9 @@ export function computeDashboard(input: DashboardInput, range: DateRange | null)
       cogs,
       grossProfit,
       opex,
-      netProfit: grossProfit - opex,
+      writeOffs,
+      watchesWrittenOff: lost.length,
+      netProfit: grossProfit - opex - writeOffs,
       margin: ratio(grossProfit, revenue),
       roi: ratio(grossProfit, cogs),
       watchesSold: facts.length,
@@ -268,7 +282,7 @@ export function computeDashboard(input: DashboardInput, range: DateRange | null)
   // Monthly series. `scoped` only counts rows inside the range, so the bars add up to the
   // headline numbers; `full` uses whole months and feeds the 12-month sparklines.
   const emptyMonth = (month: string): MonthPoint => ({
-    month, revenue: 0, fees: 0, cogs: 0, opex: 0, grossProfit: 0, netProfit: 0, sold: 0,
+    month, revenue: 0, fees: 0, cogs: 0, opex: 0, writeOffs: 0, grossProfit: 0, netProfit: 0, sold: 0,
   });
   const buildMonths = (r: DateRange | null) => {
     const map = new Map<string, MonthPoint>();
@@ -286,9 +300,10 @@ export function computeDashboard(input: DashboardInput, range: DateRange | null)
       p.sold += 1;
     }
     for (const e of expenses) if (inRange(e.date, r)) at(e.date.slice(0, 7)).opex += e.amount;
+    for (const x of writtenOff) if (inRange(x.date, r)) at(x.date.slice(0, 7)).writeOffs += x.loss;
     for (const p of map.values()) {
       p.grossProfit = p.revenue - p.fees - p.cogs;
-      p.netProfit = p.grossProfit - p.opex;
+      p.netProfit = p.grossProfit - p.opex - p.writeOffs;
     }
     return map;
   };
@@ -347,7 +362,8 @@ export function computeDashboard(input: DashboardInput, range: DateRange | null)
   };
 
   // Stock: always "as of today", not period-dependent.
-  const unsold = watches.filter((w) => w.status !== "Sold");
+  // Sold and written-off watches have left stock.
+  const unsold = watches.filter((w) => w.status !== "Sold" && w.status !== "Written off");
   const stages = ["In Inventory", "Modding", "Listed"];
   const byStage = stages.map((status) => {
     const ws = unsold.filter((w) => w.status === status);

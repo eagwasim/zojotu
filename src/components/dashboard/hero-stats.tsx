@@ -31,7 +31,7 @@ export function HeroStats({ data, comparison }: HeroStatsProps) {
         deltaFallback={noBase}
         comparisonLabel={comparison}
         trend={trend.map((m) => m.netProfit)}
-        definition="Sale price minus platform fees, shipping, purchase cost and parts, minus operating expenses. Watch sales only."
+        definition="Sale price minus platform fees, shipping, purchase cost and parts, minus operating expenses and written-off watches. Watch sales only."
       />
       <StatTile
         label="Revenue"

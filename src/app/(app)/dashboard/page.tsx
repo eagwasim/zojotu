@@ -193,6 +193,13 @@ function MoreMetrics({ data }: { data: Dashboard }) {
     ["Fees & shipping", formatCurrency(c.fees), c.revenue ? `${formatPercentage(c.fees / c.revenue)} of revenue.` : ""],
     ["Cost of watches sold", formatCurrency(c.cogs), "Purchase cost plus parts."],
     ["Operating expenses", formatCurrency(c.opex), "Tools, supplies, software, shipping, marketing."],
+    [
+      "Written off",
+      formatCurrency(c.writeOffs),
+      c.watchesWrittenOff
+        ? `${c.watchesWrittenOff} watch${c.watchesWrittenOff === 1 ? "" : "es"} broken beyond repair. Purchase cost plus parts.`
+        : "Purchase cost plus parts of watches broken beyond repair.",
+    ],
     ["Profit before expenses", formatCurrency(c.grossProfit), "Sale price − fees − shipping − cost."],
     ["Reselling + service revenue", formatCurrency(data.combined.current.revenue), ""],
     ["Reselling + service profit", formatCurrency(data.combined.current.netProfit), "Net reselling profit plus service profit."],

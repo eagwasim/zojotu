@@ -9,10 +9,17 @@ export const MOVEMENTS = [
   "Vintage Manual",
 ] as const;
 
-export const WATCH_STATUSES = ["In Inventory", "Modding", "Listed", "Sold"] as const;
+export const WATCH_STATUSES = ["In Inventory", "Modding", "Listed", "Sold", "Written off"] as const;
 
-/** Statuses you can set directly. "Sold" only comes from recording a sale. */
+/**
+ * Statuses you can set directly. "Sold" only comes from recording a sale, and
+ * "Written off" from the write-off dialog (it needs a date and counts as a loss).
+ */
 export const SETTABLE_STATUSES = ["In Inventory", "Modding", "Listed"] as const;
+
+/** Final statuses: the watch has left stock. */
+export const CLOSED_STATUSES = ["Sold", "Written off"] as const;
+export const isClosedStatus = (status: string) => (CLOSED_STATUSES as readonly string[]).includes(status);
 
 export const CONDITIONS = ["New", "Excellent", "Very good", "Good", "Fair", "For parts"] as const;
 
@@ -41,6 +48,8 @@ export const watchSchema = z.object({
   serial: optionalText,
   condition: z.enum(CONDITIONS).nullish(),
   primaryImageId: z.number().int().positive().nullish(),
+  writtenOffDate: isoDate.nullish(),
+  writtenOffReason: optionalText,
 });
 
 /** PUT /api/watches/[id]: any subset of fields, same rules. Unknown keys are dropped. */

@@ -159,4 +159,44 @@ describe("computeDashboard", () => {
     expect(d.service).toMatchObject({ pending: 1, active: 1, unpaid: { count: 1, amount: 120 } });
     expect(d.combined.current).toEqual({ revenue: 320, netProfit: 170 });
   });
+
+  describe("write-offs", () => {
+    // Broken beyond repair in November: 150 paid + 30 parts = 180 lost. Bought 200 days ago,
+    // so it would be flagged as unlisted if it still counted as stock.
+    const withWriteOff = (): DashboardInput => {
+      const f = fixture();
+      f.watches.push({
+        id: 7, brand: "Omega", model: "Seamaster", status: "Written off",
+        baseCost: 150, acquisitionDate: "2026-04-01", writtenOffDate: "2026-11-12",
+      });
+      f.parts.push({ watchId: 7, cost: 30 });
+      return f;
+    };
+
+    it("count the cost basis as a loss in net profit, in the write-off period", () => {
+      const d = computeDashboard(withWriteOff(), nov);
+      expect(d.reselling.current).toMatchObject({
+        grossProfit: 100, opex: 20, writeOffs: 180, watchesWrittenOff: 1, netProfit: -100,
+      });
+      expect(d.reselling.previous).toMatchObject({ writeOffs: 0, netProfit: 70 });
+      expect(d.reselling.monthly.at(-1)).toMatchObject({ month: "2026-11", writeOffs: 180, netProfit: -100 });
+      expect(d.combined.current.netProfit).toBe(-10);
+    });
+
+    it("don't touch revenue, margin or gross profit", () => {
+      const before = computeDashboard(fixture(), null).reselling.current;
+      const after = computeDashboard(withWriteOff(), null).reselling.current;
+      expect(after).toMatchObject({
+        revenue: before.revenue, grossProfit: before.grossProfit, margin: before.margin, watchesSold: 2,
+      });
+      expect(after.netProfit).toBe(before.netProfit - 180);
+    });
+
+    it("leave stock and raise no attention items", () => {
+      const d = computeDashboard(withWriteOff(), null);
+      expect(d.stock.count).toBe(4);
+      expect(d.stock.cost).toBe(1920);
+      expect(d.actions.map((a) => a.id).some((id) => id.endsWith(":7"))).toBe(false);
+    });
+  });
 });
