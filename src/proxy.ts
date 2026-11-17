@@ -20,8 +20,33 @@ const PUBLIC_PATHS = [
   "/sitemap.xml",
 ];
 
+/** Sign-in pages a signed-in user has no reason to see. */
+const SIGNED_OUT_ONLY = ["/login", "/register"];
+
+/** Where each role lands after signing in. Keep in step with the login page. */
+const homeFor = (role: string) => (role === "customer" ? "/portal" : "/dashboard");
+
+/** The session's role, or null when there is no valid (unexpired, correctly signed) session. */
+async function sessionRole(request: NextRequest): Promise<string | null> {
+  const token = request.cookies.get("vc_session")?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, SECRET);
+    return typeof payload.role === "string" ? payload.role : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (SIGNED_OUT_ONLY.some((p) => pathname === p || pathname === `${p}/`)) {
+    const role = await sessionRole(request);
+    return role
+      ? NextResponse.redirect(new URL(homeFor(role), request.url))
+      : NextResponse.next();
+  }
 
   if (
     pathname === "/" ||
@@ -32,33 +57,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("vc_session")?.value;
-
-  if (!token) {
+  const role = await sessionRole(request);
+  if (!role) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  try {
-    const { payload } = await jwtVerify(token, SECRET);
-    const role = payload.role as string;
-
-    // Block customers from admin routes
-    if (role === "customer") {
-      const adminPaths = ["/dashboard", "/inventory", "/parts", "/sales", "/expenses", "/services", "/service-catalog", "/customers"];
-      if (adminPaths.some((p) => pathname.startsWith(p))) {
-        return NextResponse.redirect(new URL("/portal", request.url));
-      }
+  // Block customers from admin routes
+  if (role === "customer") {
+    const adminPaths = ["/dashboard", "/inventory", "/parts", "/sales", "/expenses", "/services", "/service-catalog", "/customers"];
+    if (adminPaths.some((p) => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL(homeFor(role), request.url));
     }
-
-    // Block admin/user from customer portal routes
-    if (role !== "customer" && pathname.startsWith("/portal")) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-
-    return NextResponse.next();
-  } catch {
-    return NextResponse.redirect(new URL("/login", request.url));
   }
+
+  // Block admin/user from customer portal routes
+  if (role !== "customer" && pathname.startsWith("/portal")) {
+    return NextResponse.redirect(new URL(homeFor(role), request.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
