@@ -7,6 +7,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { PlatformFeesCard } from "@/components/settings/platform-fees-card";
 
 interface Settings {
   admin_notification_email: string;
@@ -44,8 +45,8 @@ export default function SettingsPage() {
       });
       if (!res.ok) throw new Error("Failed to save");
       toast("Settings saved", "success");
-    } catch (e: any) {
-      toast(e.message || "Failed to save settings", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Failed to save settings", "error");
     } finally {
       setSaving(false);
     }
@@ -108,6 +109,8 @@ export default function SettingsPage() {
           </Button>
         </div>
       </form>
+
+      <PlatformFeesCard />
     </div>
   );
 }

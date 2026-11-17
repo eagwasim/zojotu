@@ -12,6 +12,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DateInput } from "@/components/ui/date-input";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
@@ -35,6 +37,21 @@ const CATEGORIES = [
   "Other",
 ];
 
+// New expenses default to the category used last in this browser session.
+const LAST_CATEGORY_KEY = "expenses:last-category";
+
+function lastCategory(): string | undefined {
+  try {
+    const v = sessionStorage.getItem(LAST_CATEGORY_KEY);
+    return v && CATEGORIES.includes(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const errorMessage = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
+
 function ExpensesContent() {
   const { toast } = useToast();
   const {
@@ -56,6 +73,13 @@ function ExpensesContent() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [defaultCategory, setDefaultCategory] = useState<string | undefined>();
+
+  const openForm = (expense: Expense | null) => {
+    setEditingExpense(expense);
+    setDefaultCategory(expense ? expense.category : lastCategory());
+    setFormOpen(true);
+  };
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -69,8 +93,8 @@ function ExpensesContent() {
       await apiDelete(`/api/expenses/${deleteTarget.id}`);
       toast("Expense deleted", "success");
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to delete expense", "error");
+    } catch (e) {
+      toast(errorMessage(e, "Failed to delete expense"), "error");
     } finally {
       setDeleteTarget(null);
       setDeleting(false);
@@ -94,12 +118,15 @@ function ExpensesContent() {
       } else {
         await apiPost("/api/expenses", data);
         toast("Expense added", "success");
+        try {
+          sessionStorage.setItem(LAST_CATEGORY_KEY, data.category);
+        } catch {}
       }
       setFormOpen(false);
       setEditingExpense(null);
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to save expense", "error");
+    } catch (e) {
+      toast(errorMessage(e, "Failed to save expense"), "error");
     }
   };
 
@@ -109,7 +136,7 @@ function ExpensesContent() {
         title="Expenses"
         description={`${total} expense${total !== 1 ? "s" : ""} recorded`}
         actions={
-          <Button onClick={() => { setEditingExpense(null); setFormOpen(true); }}>
+          <Button onClick={() => openForm(null)}>
             <Plus />
             Add expense
           </Button>
@@ -146,7 +173,7 @@ function ExpensesContent() {
           }
           action={
             !(search || filters.category) && (
-              <Button onClick={() => { setEditingExpense(null); setFormOpen(true); }}>
+              <Button onClick={() => openForm(null)}>
                 <Plus />
                 Add expense
               </Button>
@@ -182,7 +209,7 @@ function ExpensesContent() {
                       <div className="flex items-center justify-end gap-2">
                         <IconButton
                           aria-label={`Edit ${expense.description}`}
-                          onClick={() => { setEditingExpense(expense); setFormOpen(true); }}
+                          onClick={() => openForm(expense)}
                         >
                           <Pencil />
                         </IconButton>
@@ -228,22 +255,20 @@ function ExpensesContent() {
             <Select
               label="Category"
               name="category"
-              defaultValue={editingExpense?.category}
+              defaultValue={defaultCategory}
+              placeholder={false}
               options={CATEGORIES.map((c) => ({ value: c, label: c }))}
             />
-            <Input
+            <CurrencyInput
               label="Amount"
               name="amount"
-              type="number"
-              step="0.01"
-              defaultValue={editingExpense?.amount?.toString()}
+              defaultValue={editingExpense?.amount}
               required
             />
           </div>
-          <Input
+          <DateInput
             label="Date"
             name="date"
-            type="date"
             defaultValue={editingExpense?.date}
             required
           />

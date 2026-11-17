@@ -2,6 +2,7 @@ import { db } from "../db";
 import { sales, watches } from "../db/schema";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { paginatedResult, type PaginatedResult } from "./pagination";
+import { dbNow } from "../db/now";
 
 export async function getAllSales() {
   return db.select().from(sales).orderBy(desc(sales.createdAt));
@@ -81,7 +82,7 @@ export async function createSale(data: {
 
   await db
     .update(watches)
-    .set({ status: "Sold", updatedAt: new Date()})
+    .set({ status: "Sold", updatedAt: dbNow()})
     .where(eq(watches.id, data.watchId));
 
   return sale;
@@ -113,7 +114,7 @@ export async function deleteSale(id: number) {
     await db.delete(sales).where(eq(sales.id, id));
     await db
       .update(watches)
-      .set({ status: "Listed", updatedAt: new Date() })
+      .set({ status: "Listed", updatedAt: dbNow() })
       .where(eq(watches.id, sale.watchId));
   }
 }

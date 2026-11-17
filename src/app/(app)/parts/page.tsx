@@ -13,10 +13,19 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DateInput } from "@/components/ui/date-input";
+import { CreatableCombobox } from "@/components/ui/creatable-combobox";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
-import { apiPost, apiPut, apiDelete } from "@/lib/api-client";
+import {
+  invalidateSuggestions,
+  serverFieldErrors,
+  useSuggestions,
+  withoutKey,
+} from "@/hooks/use-form-data";
+import { apiPost, apiPut, apiDelete, ApiError } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface Part {
@@ -42,6 +51,21 @@ const CATEGORIES = [
   "Other",
 ];
 
+// Remembered for this browser session so a run of similar parts is quick to enter.
+const LAST_CATEGORY_KEY = "parts:last-category";
+
+function lastCategory(): string | undefined {
+  try {
+    const v = sessionStorage.getItem(LAST_CATEGORY_KEY);
+    return v && CATEGORIES.includes(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const errorMessage = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
+
 function PartsContent() {
   const { toast } = useToast();
   const {
@@ -63,6 +87,31 @@ function PartsContent() {
   const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Part | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const suppliers = useSuggestions("supplier");
+  // Description and cost are controlled so "Save & add another" can clear just those.
+  const [description, setDescription] = useState("");
+  const [cost, setCost] = useState<number | null>(null);
+  const [defaultCategory, setDefaultCategory] = useState<string | undefined>();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const openForm = (part: Part | null) => {
+    setEditingPart(part);
+    setDescription(part?.description ?? "");
+    setCost(part?.cost ?? null);
+    setDefaultCategory(part ? part.category : lastCategory());
+    setErrors({});
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditingPart(null);
+  };
+
+  const clearError = (key: string) => {
+    if (errors[key]) setErrors((prev) => withoutKey(prev, key));
+  };
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -76,8 +125,8 @@ function PartsContent() {
       await apiDelete(`/api/parts/${deleteTarget.id}`);
       toast("Part deleted", "success");
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to delete part", "error");
+    } catch (e) {
+      toast(errorMessage(e, "Failed to delete part"), "error");
     } finally {
       setDeleteTarget(null);
       setDeleting(false);
@@ -86,16 +135,31 @@ function PartsContent() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const another = !editingPart && submitter?.value === "another";
     const formData = new FormData(e.currentTarget);
+    const watchId = parseInt(formData.get("watchId") as string);
+    const supplier = ((formData.get("supplier") as string) || "").trim();
     const data = {
-      watchId: parseInt(formData.get("watchId") as string),
+      watchId,
       date: formData.get("date") as string,
-      description: formData.get("description") as string,
+      description: description.trim(),
       category: formData.get("category") as string,
-      cost: parseFloat(formData.get("cost") as string),
-      supplier: (formData.get("supplier") as string) || undefined,
+      cost: cost ?? NaN,
+      // On edit, an empty string clears the supplier; on create, leave it out.
+      supplier: editingPart ? supplier : supplier || undefined,
     };
 
+    const local: Record<string, string> = {};
+    if (!Number.isFinite(watchId)) local.watchId = "Choose a watch";
+    if (!data.description) local.description = "Description is required";
+    if (cost === null) local.cost = "Enter what the part cost";
+    if (Object.keys(local).length > 0) {
+      setErrors(local);
+      return;
+    }
+
+    setSaving(true);
     try {
       if (editingPart) {
         await apiPut(`/api/parts/${editingPart.id}`, data);
@@ -103,12 +167,32 @@ function PartsContent() {
       } else {
         await apiPost("/api/parts", data);
         toast("Part added", "success");
+        try {
+          sessionStorage.setItem(LAST_CATEGORY_KEY, data.category);
+        } catch {}
       }
-      setFormOpen(false);
-      setEditingPart(null);
+      invalidateSuggestions();
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to save part", "error");
+      if (another) {
+        // Keep watch, date, supplier and category; clear what differs per part.
+        setDescription("");
+        setCost(null);
+        setErrors({});
+        requestAnimationFrame(() =>
+          document.querySelector<HTMLInputElement>("#part-description")?.focus()
+        );
+      } else {
+        closeForm();
+      }
+    } catch (e) {
+      const fe = e instanceof ApiError ? serverFieldErrors(e.body) : {};
+      setErrors(fe);
+      toast(
+        Object.keys(fe).length > 0 ? "Check the highlighted fields" : errorMessage(e, "Failed to save part"),
+        "error"
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -125,7 +209,7 @@ function PartsContent() {
         title="Parts and mods"
         description={`${total} part${total !== 1 ? "s" : ""} tracked`}
         actions={
-          <Button onClick={() => { setEditingPart(null); setFormOpen(true); }}>
+          <Button onClick={() => openForm(null)}>
             <Plus />
             Add part
           </Button>
@@ -156,7 +240,7 @@ function PartsContent() {
           title="No parts recorded yet"
           description="Add a part to track what you spend on modifications for each watch."
           action={
-            <Button variant="secondary" size="sm" onClick={() => { setEditingPart(null); setFormOpen(true); }}>
+            <Button variant="secondary" size="sm" onClick={() => openForm(null)}>
               <Plus />
               Add part
             </Button>
@@ -193,7 +277,7 @@ function PartsContent() {
                       <div className="flex items-center justify-end gap-2">
                         <IconButton
                           aria-label={`Edit ${part.description}`}
-                          onClick={() => { setEditingPart(part); setFormOpen(true); }}
+                          onClick={() => openForm(part)}
                         >
                           <Pencil />
                         </IconButton>
@@ -224,60 +308,85 @@ function PartsContent() {
 
       <Dialog
         open={formOpen}
-        onClose={() => { setFormOpen(false); setEditingPart(null); }}
+        onClose={closeForm}
         title={editingPart ? "Edit part" : "Add part"}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <Combobox
             label="Watch"
             name="watchId"
             defaultValue={editingPart?.watchId?.toString()}
             fetchUrl="/api/watches/search"
             placeholder="Search for a watch..."
+            error={errors.watchId}
+            onChange={() => clearError("watchId")}
           />
           <Input
+            id="part-description"
             label="Description"
             name="description"
-            defaultValue={editingPart?.description}
-            placeholder="e.g. Sapphire Crystal"
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              clearError("description");
+            }}
+            placeholder="e.g. Sapphire crystal"
+            error={errors.description}
             required
           />
           <div className="grid grid-cols-2 gap-4">
             <Select
               label="Category"
               name="category"
-              defaultValue={editingPart?.category}
+              defaultValue={defaultCategory}
+              placeholder={false}
               options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+              error={errors.category}
+              onChange={() => clearError("category")}
             />
-            <Input
+            <CurrencyInput
               label="Cost"
               name="cost"
-              type="number"
-              step="0.01"
-              defaultValue={editingPart?.cost?.toString()}
+              value={cost}
+              onValueChange={(v) => {
+                setCost(v);
+                clearError("cost");
+              }}
+              error={errors.cost}
               required
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <DateInput
               label="Date"
               name="date"
-              type="date"
               defaultValue={editingPart?.date}
+              error={errors.date}
+              onValueChange={() => clearError("date")}
               required
             />
-            <Input
+            <CreatableCombobox
               label="Supplier"
               name="supplier"
+              suggestions={suppliers}
               defaultValue={editingPart?.supplier || ""}
               placeholder="Optional"
+              error={errors.supplier}
+              onValueChange={() => clearError("supplier")}
             />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingPart(null); }}>
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
+            <Button type="button" variant="ghost" onClick={closeForm}>
               Cancel
             </Button>
-            <Button type="submit">{editingPart ? "Save changes" : "Add part"}</Button>
+            {!editingPart && (
+              <Button type="submit" name="intent" value="another" variant="secondary" disabled={saving}>
+                Save & add another
+              </Button>
+            )}
+            <Button type="submit" disabled={saving}>
+              {editingPart ? "Save changes" : "Add part"}
+            </Button>
           </div>
         </form>
       </Dialog>

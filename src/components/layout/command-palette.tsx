@@ -19,18 +19,29 @@ interface Command {
   id: string;
   group: string;
   label: string;
-  hint?: string;
+  shortcut?: string;
   icon: React.ComponentType<{ className?: string }>;
+  run: () => void;
+}
+
+export interface PaletteAction {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** Shown as a key hint, e.g. "N". */
+  shortcut?: string;
+  keywords?: string;
   run: () => void;
 }
 
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  actions?: PaletteAction[];
 }
 
 /** ⌘K: jump to any page or find a watch by brand/model. */
-export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, actions = [] }: CommandPaletteProps) {
   const router = useRouter();
   const listId = useId();
   const [query, setQuery] = useState("");
@@ -88,9 +99,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       icon: Watch,
       run: () => go(`/inventory/${w.id}`),
     }));
-    return [...watchCmds, ...pages];
+    const actionCmds = actions
+      .filter((a) => !q || `${a.label} ${a.keywords ?? ""}`.toLowerCase().includes(q))
+      .map<Command>((a) => ({
+        id: `action:${a.id}`,
+        group: "Actions",
+        label: a.label,
+        icon: a.icon,
+        shortcut: a.shortcut,
+        run: () => {
+          onOpenChange(false);
+          a.run();
+        },
+      }));
+    return [...actionCmds, ...watchCmds, ...pages];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, result]);
+  }, [query, result, actions]);
 
   useEffect(() => {
     listRef.current
@@ -184,6 +208,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     >
                       <cmd.icon className="size-4 text-muted-foreground" />
                       <span className="flex-1 truncate">{cmd.label}</span>
+                      {cmd.shortcut && <Kbd>{cmd.shortcut}</Kbd>}
                       {i === active && <CornerDownLeft className="size-3.5 text-muted-foreground" aria-hidden />}
                     </div>
                   </div>

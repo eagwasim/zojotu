@@ -4,6 +4,8 @@ import { watchImages } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { deleteImage, getImagePath } from "@/lib/storage";
 import fs from "fs";
+import { requireAdmin } from "@/lib/authorize";
+import { watches } from "@/lib/db/schema";
 
 export async function GET(
   request: NextRequest,
@@ -47,6 +49,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { id } = await params;
   const [image] = await db
     .select()
@@ -57,6 +62,12 @@ export async function DELETE(
   if (!image) {
     return NextResponse.json({ error: "Image not found" }, { status: 404 });
   }
+
+  // Don't leave the watch pointing at a deleted cover photo.
+  await db
+    .update(watches)
+    .set({ primaryImageId: null })
+    .where(eq(watches.primaryImageId, image.id));
 
   await deleteImage(image.filename);
   await db.delete(watchImages).where(eq(watchImages.id, parseInt(id)));

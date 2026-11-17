@@ -127,7 +127,7 @@ _Everything else builds on this, so it comes first._
   3. **Dashboard hero** (still): 4 stat tiles plus the "needs attention" list (based on `chart-scrub`).
 - Each must pass `stageshow`'s `--gate` rehearsal. You review them, and we adjust tokens and layout before phases 2–4 commit to them.
 
-### Phase 2: Make data entry fast (3–4 days)
+### Phase 2: Make data entry fast (3–4 days) 🚧 on `features/fast-data-entry` (stacked on phase 1)
 _Highest day-to-day payoff._
 - **Watch page becomes the workspace** (`inventory/[id]`):
   - Header with hero photo, brand/model, status stepper (Acquired → Modding → Listed → Sold), and live **cost basis / ask / expected profit**.

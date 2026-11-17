@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { saveImageLocally } from "@/lib/storage";
 import { requireAdmin } from "@/lib/authorize";
 import crypto from "crypto";
-import path from "path";
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
 export async function GET(request: NextRequest) {
   const watchId = request.nextUrl.searchParams.get("watchId");
@@ -34,15 +34,27 @@ export async function POST(request: NextRequest) {
   const stage = (formData.get("stage") as string) || "before";
   const caption = formData.get("caption") as string | null;
 
-  if (!file || !watchId) {
+  if (!file || !watchId || !Number.isInteger(Number(watchId))) {
     return NextResponse.json(
       { error: "file and watchId are required" },
       { status: 400 }
     );
   }
+  const allowed: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+  };
+  if (!allowed[file.type]) {
+    return NextResponse.json({ error: "Upload a JPEG, PNG or WebP image" }, { status: 400 });
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: "Images must be 15 MB or smaller" }, { status: 400 });
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = path.extname(file.name) || ".jpg";
+  // Extension comes from the checked MIME type, never from the client's filename.
+  const ext = allowed[file.type];
   const filename = `${crypto.randomUUID()}${ext}`;
 
   await saveImageLocally(buffer, filename);

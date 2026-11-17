@@ -1,49 +1,44 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Eye } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Plus, Pencil, Trash2, Eye, Download, Receipt, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SearchInput, SegmentedFilter } from "@/components/ui/filter-bar";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { WatchFormSheet, type WatchRecord } from "@/components/watches/watch-form-sheet";
+import { RecordSaleSheet } from "@/components/sales/record-sale-sheet";
+import {
+  BulkStageMenu,
+  RowActionsMenu,
+  StageMenu,
+  type SettableStatus,
+} from "@/components/inventory/watch-menus";
+import { downloadWatchesCsv } from "@/components/inventory/watch-csv";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
-import { apiPost, apiPut, apiDelete } from "@/lib/api-client";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { apiDelete, apiPost, apiPut, apiRequest } from "@/lib/api-client";
+import { WATCH_STATUSES } from "@/lib/validators/watch";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
-interface Watch {
-  id: number;
-  brand: string;
-  model: string;
-  movementType: string;
-  acquisitionDate: string;
-  source: string;
-  baseCost: number;
-  status: string;
-  notes?: string;
-}
+const errorMessage = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
 
-const STATUSES = ["In Inventory", "Modding", "Listed", "Sold"];
-const MOVEMENTS = [
-  "Automatic",
-  "Quartz",
-  "Manual",
-  "Solar",
-  "Mecha-Quartz",
-  "Vintage Manual",
-];
+const watchLabel = (w: Pick<WatchRecord, "brand" | "model">) => `${w.brand} ${w.model}`;
+
+const plural = (n: number) => `${n} watch${n === 1 ? "" : "es"}`;
+
+const th = "border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground";
 
 function InventoryContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const {
     data: watches,
@@ -57,85 +52,164 @@ function InventoryContent() {
     setSearch,
     search,
     refresh,
-  } = usePaginatedFetch<Watch>({ url: "/api/watches" });
+  } = usePaginatedFetch<WatchRecord>({ url: "/api/watches" });
 
   const [searchInput, setSearchInput] = useState(search);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingWatch, setEditingWatch] = useState<Watch | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Watch | null>(null);
+  const [editingWatch, setEditingWatch] = useState<WatchRecord | null>(null);
+  const [saleWatch, setSaleWatch] = useState<WatchRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WatchRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  // Optimistic stage changes, shown until the list is refetched.
+  const [stageOverrides, setStageOverrides] = useState<Record<number, string>>({});
+
+  // The command palette and the global "N" shortcut link to /inventory?new=1.
+  const newFromUrl = searchParams.get("new") === "1";
+  const sheetOpen = formOpen || newFromUrl;
 
   const activeStatus = filters.status || "";
+  const statusOf = (w: WatchRecord) => stageOverrides[w.id] ?? w.status;
+
+  const pageIds = watches.map((w) => w.id);
+  const selectedOnPage = pageIds.filter((id) => selected.has(id)).length;
+  const allOnPageSelected = pageIds.length > 0 && selectedOnPage === pageIds.length;
+
+  const openAdd = () => {
+    setEditingWatch(null);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditingWatch(null);
+    if (newFromUrl) router.replace("/inventory");
+  };
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
     setSearch(value);
   };
 
-  const handleStatusFilter = (status: string) => {
-    setFilter("status", status);
-  };
+  const toggleRow = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const togglePage = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of pageIds) {
+        if (allOnPageSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await apiDelete(`/api/watches/${deleteTarget.id}`);
-      toast("Watch deleted successfully", "success");
+      toast("Watch deleted", "success");
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to delete watch", "error");
+    } catch (e) {
+      toast(errorMessage(e, "Couldn't delete the watch"), "error");
     } finally {
       setDeleteTarget(null);
       setDeleting(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      brand: formData.get("brand") as string,
-      model: formData.get("model") as string,
-      movementType: formData.get("movementType") as string,
-      acquisitionDate: formData.get("acquisitionDate") as string,
-      source: formData.get("source") as string,
-      baseCost: parseFloat(formData.get("baseCost") as string),
-      status: formData.get("status") as string,
-      notes: (formData.get("notes") as string) || undefined,
-    };
-
+  const changeStage = async (watch: WatchRecord, status: SettableStatus) => {
+    const clearOverride = () =>
+      setStageOverrides((prev) => {
+        const next = { ...prev };
+        delete next[watch.id];
+        return next;
+      });
+    setStageOverrides((prev) => ({ ...prev, [watch.id]: status }));
     try {
-      if (editingWatch) {
-        await apiPut(`/api/watches/${editingWatch.id}`, data);
-        toast("Watch updated successfully", "success");
-      } else {
-        await apiPost("/api/watches", data);
-        toast("Watch added successfully", "success");
-      }
-      setFormOpen(false);
-      setEditingWatch(null);
-      refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to save watch", "error");
+      await apiPut(`/api/watches/${watch.id}`, { status });
+      await refresh();
+      clearOverride();
+    } catch (e) {
+      clearOverride();
+      toast(errorMessage(e, `Couldn't change the stage of ${watchLabel(watch)}`), "error");
     }
   };
+
+  const bulkSetStage = async (status: SettableStatus) => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await apiPost<{ updatedIds: number[]; skipped: number }>(
+        "/api/watches/bulk-status",
+        { ids, status }
+      );
+      const updated = res.updatedIds.length;
+      const msg =
+        `Moved ${plural(updated)} to ${status}` +
+        (res.skipped > 0
+          ? `. Skipped ${res.skipped} sold watch${res.skipped === 1 ? "" : "es"}.`
+          : "");
+      toast(msg, updated > 0 ? "success" : "info");
+      setSelected(new Set());
+      refresh();
+    } catch (e) {
+      toast(errorMessage(e, "Couldn't update the stage"), "error");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const all = await apiRequest<WatchRecord[]>("/api/watches");
+      const rows = selected.size > 0 ? all.filter((w) => selected.has(w.id)) : all;
+      if (rows.length === 0) {
+        toast("There are no watches to export", "info");
+        return;
+      }
+      downloadWatchesCsv(rows);
+      toast(`Exported ${plural(rows.length)}`, "success");
+    } catch (e) {
+      toast(errorMessage(e, "Couldn't export watches"), "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Inventory"
-        description={`${total} watch${total !== 1 ? "es" : ""} in collection`}
+        description={`${plural(total)} in collection`}
         actions={
-          <Button
-            onClick={() => {
-              setEditingWatch(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus />
-            Add watch
-          </Button>
+          <>
+            <Button variant="secondary" onClick={exportCsv} disabled={exporting}>
+              <Download />
+              {exporting ? "Exporting…" : "Export CSV"}
+            </Button>
+            <Button onClick={openAdd}>
+              <Plus />
+              Add watch
+            </Button>
+          </>
         }
       />
 
@@ -148,26 +222,43 @@ function InventoryContent() {
         <SegmentedFilter
           label="Status"
           value={activeStatus}
-          onChange={handleStatusFilter}
+          onChange={(status) => setFilter("status", status)}
           options={[
             { value: "", label: "All" },
-            ...STATUSES.map((s) => ({ value: s, label: s })),
+            ...WATCH_STATUSES.map((s) => ({ value: s, label: s })),
           ]}
         />
       </div>
 
-      {loading ? (
+      {selected.size > 0 && (
+        <div
+          role="region"
+          aria-label="Bulk actions"
+          className="flex flex-wrap items-center gap-2 rounded-xl bg-card px-4 py-2.5 shadow-card"
+        >
+          <p className="mr-auto text-sm font-medium text-foreground" aria-live="polite">
+            {selected.size} selected
+          </p>
+          <BulkStageMenu disabled={bulkBusy} onSelect={bulkSetStage} />
+          <Button variant="secondary" size="sm" onClick={exportCsv} disabled={exporting}>
+            <Download />
+            Export CSV
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+            <X />
+            Clear
+          </Button>
+        </div>
+      )}
+
+      {loading && watches.length === 0 ? (
         <TableSkeleton cols={7} />
       ) : watches.length === 0 ? (
         <EmptyState
           title="No watches found"
           description="Add a watch to start tracking your collection, or clear the search and status filter."
           action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setFormOpen(true)}
-            >
+            <Button variant="secondary" size="sm" onClick={openAdd}>
               <Plus />
               Add watch
             </Button>
@@ -179,88 +270,124 @@ function InventoryContent() {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    Watch
+                  <th scope="col" className={cn(th, "w-10 pr-0")}>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all watches on this page"
+                      checked={allOnPageSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = selectedOnPage > 0 && !allOnPageSelected;
+                      }}
+                      onChange={togglePage}
+                      className="size-4 align-middle accent-[var(--primary)]"
+                    />
                   </th>
-                  <th className="hidden md:table-cell border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    Movement
-                  </th>
-                  <th className="hidden md:table-cell border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    Source
-                  </th>
-                  <th className="border-b border-border px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    Cost
-                  </th>
-                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="hidden lg:table-cell border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="border-b border-border px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    Actions
+                  <th scope="col" className={cn(th, "text-left")}>Watch</th>
+                  <th scope="col" className={cn(th, "hidden text-left md:table-cell")}>Movement</th>
+                  <th scope="col" className={cn(th, "hidden text-left md:table-cell")}>Source</th>
+                  <th scope="col" className={cn(th, "text-right")}>Cost</th>
+                  <th scope="col" className={cn(th, "text-left")}>Status</th>
+                  <th scope="col" className={cn(th, "hidden text-left lg:table-cell")}>Date</th>
+                  <th scope="col" className={cn(th, "text-right")}>
+                    <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {watches.map((watch) => (
-                  <tr
-                    key={watch.id}
-                    className="border-t border-border transition-colors first:border-t-0 hover:bg-accent/50"
-                  >
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {watch.brand}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {watch.model}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="hidden md:table-cell px-4 py-3 text-muted-foreground">
-                      {watch.movementType}
-                    </td>
-                    <td className="hidden md:table-cell px-4 py-3 text-muted-foreground">
-                      {watch.source}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                      {formatCurrency(watch.baseCost)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={watch.status} />
-                    </td>
-                    <td className="hidden lg:table-cell px-4 py-3 text-muted-foreground">
-                      {formatDate(watch.acquisitionDate)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <IconButton
-                          aria-label={`View ${watch.brand} ${watch.model}`}
-                          onClick={() => router.push(`/inventory/${watch.id}`)}
+                {watches.map((watch) => {
+                  const label = watchLabel(watch);
+                  const status = statusOf(watch);
+                  const isSelected = selected.has(watch.id);
+                  const isSold = status === "Sold";
+                  return (
+                    <tr
+                      key={watch.id}
+                      onClick={() => router.push(`/inventory/${watch.id}`)}
+                      className={cn(
+                        "cursor-pointer border-t border-border transition-colors first:border-t-0 hover:bg-accent/50",
+                        isSelected && "bg-accent/60"
+                      )}
+                    >
+                      <td className="w-10 py-3 pl-4 pr-0" onClick={stop}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${label}`}
+                          checked={isSelected}
+                          onChange={() => toggleRow(watch.id)}
+                          className="size-4 align-middle accent-[var(--primary)]"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/inventory/${watch.id}`}
+                          onClick={stop}
+                          className="block rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                         >
-                          <Eye />
-                        </IconButton>
-                        <IconButton
-                          aria-label={`Edit ${watch.brand} ${watch.model}`}
-                          onClick={() => {
-                            setEditingWatch(watch);
-                            setFormOpen(true);
-                          }}
-                        >
-                          <Pencil />
-                        </IconButton>
-                        <IconButton
-                          tone="destructive"
-                          aria-label={`Delete ${watch.brand} ${watch.model}`}
-                          onClick={() => setDeleteTarget(watch)}
-                        >
-                          <Trash2 />
-                        </IconButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <span className="block font-medium text-foreground">{watch.brand}</span>
+                          <span className="block text-xs text-muted-foreground">{watch.model}</span>
+                        </Link>
+                      </td>
+                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                        {watch.movementType}
+                      </td>
+                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                        {watch.source}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                        {formatCurrency(watch.baseCost)}
+                      </td>
+                      <td className="px-4 py-3" onClick={stop}>
+                        {isSold ? (
+                          <StatusBadge status={status} />
+                        ) : (
+                          <StageMenu
+                            status={status}
+                            label={label}
+                            onChange={(s) => changeStage(watch, s)}
+                          />
+                        )}
+                      </td>
+                      <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                        {formatDate(watch.acquisitionDate)}
+                      </td>
+                      <td className="px-4 py-2 text-right" onClick={stop}>
+                        <RowActionsMenu
+                          label={label}
+                          actions={[
+                            {
+                              label: "Open",
+                              icon: Eye,
+                              onSelect: () => router.push(`/inventory/${watch.id}`),
+                            },
+                            {
+                              label: "Edit",
+                              icon: Pencil,
+                              onSelect: () => {
+                                setEditingWatch(watch);
+                                setFormOpen(true);
+                              },
+                            },
+                            ...(isSold
+                              ? []
+                              : [
+                                  {
+                                    label: "Record sale",
+                                    icon: Receipt,
+                                    onSelect: () => setSaleWatch(watch),
+                                  },
+                                ]),
+                            {
+                              label: "Delete",
+                              icon: Trash2,
+                              destructive: true,
+                              onSelect: () => setDeleteTarget(watch),
+                            },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -275,101 +402,33 @@ function InventoryContent() {
         </>
       )}
 
-      <Dialog
-        open={formOpen}
-        onClose={() => {
-          setFormOpen(false);
-          setEditingWatch(null);
-        }}
-        title={editingWatch ? "Edit watch" : "Add watch"}
-        className="max-w-xl"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Brand"
-              name="brand"
-              defaultValue={editingWatch?.brand}
-              placeholder="e.g. Seiko"
-              required
-            />
-            <Input
-              label="Model"
-              name="model"
-              defaultValue={editingWatch?.model}
-              placeholder="e.g. SKX007"
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Movement"
-              name="movementType"
-              defaultValue={editingWatch?.movementType}
-              options={MOVEMENTS.map((m) => ({ value: m, label: m }))}
-            />
-            <Select
-              label="Status"
-              name="status"
-              defaultValue={editingWatch?.status || "In Inventory"}
-              options={STATUSES.map((s) => ({ value: s, label: s }))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Acquisition date"
-              name="acquisitionDate"
-              type="date"
-              defaultValue={editingWatch?.acquisitionDate}
-              required
-            />
-            <Input
-              label="Base cost"
-              name="baseCost"
-              type="number"
-              step="0.01"
-              defaultValue={editingWatch?.baseCost?.toString()}
-              placeholder="0.00"
-              required
-            />
-          </div>
-          <Input
-            label="Source"
-            name="source"
-            defaultValue={editingWatch?.source}
-            placeholder="e.g. eBay, Private, Chrono24"
-            required
-          />
-          <Input
-            label="Notes"
-            name="notes"
-            defaultValue={editingWatch?.notes || ""}
-            placeholder="Optional notes..."
-          />
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setFormOpen(false);
-                setEditingWatch(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit">
-              {editingWatch ? "Save changes" : "Add watch"}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+      <WatchFormSheet
+        open={sheetOpen}
+        onClose={closeForm}
+        watch={editingWatch}
+        onSaved={() => refresh()}
+      />
+
+      <RecordSaleSheet
+        open={!!saleWatch}
+        onClose={() => setSaleWatch(null)}
+        watch={
+          saleWatch && {
+            id: saleWatch.id,
+            label: watchLabel(saleWatch),
+            askingPrice: saleWatch.askingPrice,
+            listedPlatform: saleWatch.listedPlatform,
+          }
+        }
+        onSaved={() => refresh()}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete watch"
-        message={`Are you sure you want to delete "${deleteTarget?.brand} ${deleteTarget?.model}"? This will also remove all associated parts and sales records. This action cannot be undone.`}
+        message={`Are you sure you want to delete "${deleteTarget ? watchLabel(deleteTarget) : ""}"? This will also remove all associated parts and sales records. This action cannot be undone.`}
         loading={deleting}
       />
     </div>

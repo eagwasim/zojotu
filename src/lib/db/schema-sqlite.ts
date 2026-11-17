@@ -12,6 +12,13 @@ export const watches = sqliteTable("watches", {
   baseCost: real("base_cost").notNull(),
   status: text("status").notNull().default("In Inventory"),
   notes: text("notes"),
+  // Listing & identity (added 2026-11, see docs/db-changes.md). All nullable.
+  askingPrice: real("asking_price"),
+  listedDate: text("listed_date"),
+  listedPlatform: text("listed_platform"),
+  serial: text("serial"),
+  condition: text("condition"),
+  primaryImageId: integer("primary_image_id"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });

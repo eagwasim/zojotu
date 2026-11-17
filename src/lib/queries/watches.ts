@@ -1,8 +1,27 @@
 import { db } from "../db";
 import { watches, parts, sales } from "../db/schema";
-import { eq, sql, desc, and, or } from "drizzle-orm";
+import { eq, sql, desc, and, or, ne, inArray, asc } from "drizzle-orm";
+import { watchImages } from "../db/schema";
+import type { WatchInput, WatchUpdate, SETTABLE_STATUSES } from "../validators/watch";
 import { paginatedResult, type PaginatedResult } from "./pagination";
 import { saleNetRevenue, saleProfit } from "../profit";
+import { dbNow } from "../db/now";
+
+type SettableStatus = (typeof SETTABLE_STATUSES)[number];
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Moving to "Listed" stamps the listed date, but never overwrites one that is already set. */
+const keepOrStampListedDate = () => sql`coalesce(${watches.listedDate}, ${today()})`;
+
+function withListingDefaults<T extends WatchUpdate>(data: T) {
+  if (data.status === "Listed" && data.listedDate === undefined) {
+    return { ...data, listedDate: keepOrStampListedDate() };
+  }
+  return data;
+}
 
 export async function getAllWatches(status?: string) {
   const query = db.select().from(watches).orderBy(desc(watches.createdAt));
@@ -132,10 +151,17 @@ export async function getWatchWithEconomics(id: number) {
     );
   }
 
+  const images = await db
+    .select()
+    .from(watchImages)
+    .where(eq(watchImages.watchId, id))
+    .orderBy(asc(watchImages.sortOrder), asc(watchImages.id));
+
   return {
     ...watch,
     parts: watchParts,
     sale: sale || null,
+    images,
     economics: {
       baseCost: watch.baseCost,
       totalPartsCost,
@@ -149,41 +175,31 @@ export async function getWatchWithEconomics(id: number) {
   };
 }
 
-export async function createWatch(data: {
-  brand: string;
-  model: string;
-  reference?: string;
-  movementType: string;
-  acquisitionDate: string;
-  source: string;
-  baseCost: number;
-  status: string;
-  notes?: string;
-}) {
-  const [watch] = await db.insert(watches).values(data).returning();
+export async function createWatch(data: WatchInput) {
+  const values =
+    data.status === "Listed" && !data.listedDate ? { ...data, listedDate: today() } : data;
+  const [watch] = await db.insert(watches).values(values).returning();
   return watch;
 }
 
-export async function updateWatch(
-  id: number,
-  data: Partial<{
-    brand: string;
-    model: string;
-    reference: string;
-    movementType: string;
-    acquisitionDate: string;
-    source: string;
-    baseCost: number;
-    status: string;
-    notes: string;
-  }>
-) {
+export async function updateWatch(id: number, data: WatchUpdate) {
   const [watch] = await db
     .update(watches)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...withListingDefaults(data), updatedAt: dbNow() })
     .where(eq(watches.id, id))
     .returning();
   return watch;
+}
+
+/** Change status for many watches at once. Never used for "Sold" (that comes from a sale). */
+export async function bulkUpdateStatus(ids: number[], status: SettableStatus) {
+  const listing = status === "Listed" ? { listedDate: keepOrStampListedDate() } : {};
+  const updated = await db
+    .update(watches)
+    .set({ status, ...listing, updatedAt: dbNow() })
+    .where(and(inArray(watches.id, ids), ne(watches.status, "Sold")))
+    .returning({ id: watches.id });
+  return updated.map((r: { id: number }) => r.id);
 }
 
 export async function deleteWatch(id: number) {

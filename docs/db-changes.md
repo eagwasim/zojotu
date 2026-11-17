@@ -20,16 +20,31 @@
 ### Phase 0 + 1: Housekeeping and design system (branch `features/design-system`)
 **No database changes.** This phase is UI only.
 
-### Phase 2: Fast data entry (planned, not yet built)
+### Phase 2: Fast data entry (branch `features/fast-data-entry`): **must be applied before deploy**
 | Change | Type | Live-safe? | Notes |
 |---|---|---|---|
 | `watches.asking_price` (real, nullable) | add column | yes | |
-| `watches.listed_date` (text, nullable) | add column | yes | ISO date, same format as `acquisition_date` |
+| `watches.listed_date` (text, nullable) | add column | yes | ISO date, like `acquisition_date`. Set automatically when a watch moves to Listed, and never overwritten once set. |
 | `watches.listed_platform` (text, nullable) | add column | yes | |
-| `watches.serial` (text, nullable) | add column | yes | Optional |
-| `watches.condition` (text, nullable) | add column | yes | Optional |
-| `watches.primary_image_id` (integer, nullable) | add column | yes | No FK constraint, to avoid cycles with `watch_images` |
-| Platform fee % | `app_settings` row (`platform_fees` = JSON `{ "eBay": 0.13, ... }`) | yes | Data only, no schema change |
+| `watches.serial` (text, nullable) | add column | yes | |
+| `watches.condition` (text, nullable) | add column | yes | New / Excellent / Very good / Good / Fair / For parts |
+| `watches.primary_image_id` (integer, nullable) | add column | yes | Cover photo. No FK, to avoid a cycle with `watch_images`. Deleting the image clears it. |
+| Platform fee % | `app_settings` row `platform_fees` = JSON `{"eBay":0.13}` | yes | Data only. Edited in Settings and written via `PUT /api/platform-fees`. |
 
-Backfill: none required. Existing "Listed" watches will show "no asking price" until one is entered.
-Rollback: the columns are unused by older code and can be left in place.
+**SQL:** `src/lib/db/manual-migrations/0001_watch_listing_fields.pg.sql` (Postgres, idempotent, in one transaction) and `.sqlite.sql` (local).
+
+**How to apply to production (Postgres)**
+1. Back up: `pg_dump "$DATABASE_URL" > backup-$(date +%F).sql`
+2. Run: `psql "$DATABASE_URL" -f src/lib/db/manual-migrations/0001_watch_listing_fields.pg.sql`
+3. Check: `psql "$DATABASE_URL" -c "\d watches"` should list the six new columns.
+4. Only then deploy the phase 2 code. **Phase 2 code against an unmigrated database fails on every watch query**, because Drizzle selects the new columns.
+
+The current production code ignores the new columns, so step 2 is safe to run while it serves traffic.
+
+Avoid `npm run db:push` here. With no committed migration history, push diffs the whole schema and may propose unrelated changes. If you use it, read every statement before accepting.
+
+**Local SQLite:** `node scripts/apply-sqlite-migration.mjs` (default `data/van_christaan.db`). It also adds `service_jobs.payment_information`, which older local files are missing.
+
+**Rollback:** not needed for old code, which ignores the columns. The drop statements are commented at the bottom of the `.pg.sql` file.
+
+**Backfill:** none. Watches that were already Listed show "Not set" for asking price until one is entered, and their listed date stays empty until they are re-listed or edited.

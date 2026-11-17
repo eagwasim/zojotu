@@ -1,15 +1,18 @@
 "use client";
 
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { Menu, Search, Watch } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { HandCoins, Menu, Plus, Search, Watch } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { IconButton } from "@/components/ui/icon-button";
 import { backdropClasses } from "@/components/ui/dialog";
 import { Sidebar } from "./sidebar";
-import { CommandPalette } from "./command-palette";
+import { CommandPalette, type PaletteAction } from "./command-palette";
+import { WatchFormSheet, type WatchRecord } from "@/components/watches/watch-form-sheet";
+import { RecordSaleSheet } from "@/components/sales/record-sale-sheet";
+import { useShortcut } from "@/hooks/use-shortcut";
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 const COLLAPSE_EVENT = "sidebar-collapsed-change";
@@ -27,6 +30,10 @@ const readCollapsed = () => localStorage.getItem(COLLAPSE_KEY) === "1";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [watchSheetOpen, setWatchSheetOpen] = useState(false);
+  const [saleSheetOpen, setSaleSheetOpen] = useState(false);
+  const savedInSheet = useRef<WatchRecord[]>([]);
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   // The drawer is open only on the page it was opened from, so navigating closes it.
   const [drawerPath, setDrawerPath] = useState<string | null>(null);
@@ -58,6 +65,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Quick add from anywhere. On the inventory list, use the page's own sheet so the list refreshes.
+  const addWatch = useCallback(() => {
+    if (pathname === "/inventory") {
+      router.push("/inventory?new=1");
+      return;
+    }
+    savedInSheet.current = [];
+    setWatchSheetOpen(true);
+  }, [pathname, router]);
+
+  const closeWatchSheet = () => {
+    setWatchSheetOpen(false);
+    const saved = savedInSheet.current;
+    savedInSheet.current = [];
+    // One watch added: go straight to its page to add parts or photos. Several: show the list.
+    if (saved.length === 1) router.push(`/inventory/${saved[0].id}`);
+    else if (saved.length > 1) router.push("/inventory");
+  };
+
+  useShortcut("n", addWatch);
+
+  const actions = useMemo<PaletteAction[]>(
+    () => [
+      { id: "add-watch", label: "Add watch", icon: Plus, shortcut: "N", keywords: "new create buy", run: addWatch },
+      { id: "record-sale", label: "Record sale", icon: HandCoins, keywords: "sold sell", run: () => setSaleSheetOpen(true) },
+    ],
+    [addWatch]
+  );
 
   const openSearch = () => {
     setMobileOpen(false);
@@ -115,7 +151,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </BaseDialog.Portal>
       </BaseDialog.Root>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} actions={actions} />
+      <WatchFormSheet
+        open={watchSheetOpen}
+        onClose={closeWatchSheet}
+        onSaved={(w) => savedInSheet.current.push(w)}
+      />
+      <RecordSaleSheet
+        open={saleSheetOpen}
+        onClose={() => setSaleSheetOpen(false)}
+        onSaved={(s) => router.push(`/inventory/${s.watchId}`)}
+      />
 
       <main
         id="main"

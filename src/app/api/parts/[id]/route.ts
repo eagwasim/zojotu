@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPartById, updatePart, deletePart } from "@/lib/queries/parts";
 import { requireAdmin } from "@/lib/authorize";
+import { partSchema } from "@/lib/validators/part";
 
 export async function GET(
   request: NextRequest,
@@ -24,8 +25,14 @@ export async function PUT(
   if (denied) return denied;
 
   const { id } = await params;
-  const body = await request.json();
-  const part = await updatePart(parseInt(id), body);
+  const result = partSchema.partial().safeParse(await request.json().catch(() => null));
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: result.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const part = await updatePart(parseInt(id), result.data);
 
   if (!part) {
     return NextResponse.json({ error: "Part not found" }, { status: 404 });

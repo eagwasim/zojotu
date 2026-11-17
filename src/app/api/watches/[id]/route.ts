@@ -5,6 +5,7 @@ import {
   deleteWatch,
 } from "@/lib/queries/watches";
 import { requireAdmin } from "@/lib/authorize";
+import { watchUpdateSchema } from "@/lib/validators/watch";
 
 export async function GET(
   request: NextRequest,
@@ -28,8 +29,14 @@ export async function PUT(
   if (denied) return denied;
 
   const { id } = await params;
-  const body = await request.json();
-  const watch = await updateWatch(parseInt(id), body);
+  const result = watchUpdateSchema.safeParse(await request.json().catch(() => null));
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: result.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const watch = await updateWatch(parseInt(id), result.data);
 
   if (!watch) {
     return NextResponse.json({ error: "Watch not found" }, { status: 404 });

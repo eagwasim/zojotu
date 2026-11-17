@@ -9,15 +9,14 @@ import { SearchInput } from "@/components/ui/filter-bar";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Combobox } from "@/components/ui/combobox";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { RecordSaleSheet } from "@/components/sales/record-sale-sheet";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
-import { apiPost, apiPut, apiDelete } from "@/lib/api-client";
+import { apiDelete } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useSuggestions } from "@/hooks/use-form-data";
 
 interface Sale {
   id: number;
@@ -27,24 +26,15 @@ interface Sale {
   grossSalePrice: number;
   platformFee: number;
   shippingInsurance: number;
-  notes?: string;
+  notes?: string | null;
   watchBrand?: string;
   watchModel?: string;
 }
 
-const PLATFORMS = [
-  "Chrono24",
-  "eBay",
-  "Etsy",
-  "Facebook Marketplace",
-  "Reddit (r/Watchexchange)",
-  "Private Sale",
-  "Instagram",
-  "Vinted",
-  "Other",
-];
 
 function SalesContent() {
+  // Platforms actually used (plus common ones), so any platform recorded on a sale can be filtered.
+  const platformOptions = useSuggestions("platform");
   const { toast } = useToast();
   const {
     data: salesList,
@@ -78,42 +68,11 @@ function SalesContent() {
       await apiDelete(`/api/sales/${deleteTarget.id}`);
       toast("Sale deleted", "success");
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to delete sale", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Failed to delete sale", "error");
     } finally {
       setDeleteTarget(null);
       setDeleting(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      watchId: parseInt(formData.get("watchId") as string),
-      saleDate: formData.get("saleDate") as string,
-      platform: formData.get("platform") as string,
-      grossSalePrice: parseFloat(formData.get("grossSalePrice") as string),
-      platformFee: parseFloat((formData.get("platformFee") as string) || "0"),
-      shippingInsurance: parseFloat(
-        (formData.get("shippingInsurance") as string) || "0"
-      ),
-      notes: (formData.get("notes") as string) || undefined,
-    };
-
-    try {
-      if (editingSale) {
-        await apiPut(`/api/sales/${editingSale.id}`, data);
-        toast("Sale updated", "success");
-      } else {
-        await apiPost("/api/sales", data);
-        toast("Sale recorded", "success");
-      }
-      setFormOpen(false);
-      setEditingSale(null);
-      refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to save sale", "error");
     }
   };
 
@@ -150,7 +109,7 @@ function SalesContent() {
             value={filters.platform || ""}
             onChange={(e) => setFilter("platform", e.target.value)}
             placeholder="All platforms"
-            options={PLATFORMS.map((p) => ({ value: p, label: p }))}
+            options={platformOptions.map((p) => ({ value: p, label: p }))}
           />
         </div>
       </div>
@@ -250,73 +209,12 @@ function SalesContent() {
         </>
       )}
 
-      <Dialog
+      <RecordSaleSheet
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingSale(null); }}
-        title={editingSale ? "Edit sale" : "Record sale"}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Combobox
-            label="Watch"
-            name="watchId"
-            defaultValue={editingSale?.watchId?.toString()}
-            fetchUrl="/api/watches/search"
-            fetchParams={{ excludeStatus: "Sold" }}
-            placeholder="Search for a watch..."
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Sale date"
-              name="saleDate"
-              type="date"
-              defaultValue={editingSale?.saleDate}
-              required
-            />
-            <Select
-              label="Platform"
-              name="platform"
-              defaultValue={editingSale?.platform}
-              options={PLATFORMS.map((p) => ({ value: p, label: p }))}
-            />
-          </div>
-          <Input
-            label="Gross sale price"
-            name="grossSalePrice"
-            type="number"
-            step="0.01"
-            defaultValue={editingSale?.grossSalePrice?.toString()}
-            required
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Platform fee"
-              name="platformFee"
-              type="number"
-              step="0.01"
-              defaultValue={editingSale?.platformFee?.toString() || "0"}
-            />
-            <Input
-              label="Shipping & insurance"
-              name="shippingInsurance"
-              type="number"
-              step="0.01"
-              defaultValue={editingSale?.shippingInsurance?.toString() || "0"}
-            />
-          </div>
-          <Input
-            label="Notes"
-            name="notes"
-            defaultValue={editingSale?.notes || ""}
-            placeholder="Optional notes..."
-          />
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingSale(null); }}>
-              Cancel
-            </Button>
-            <Button type="submit">{editingSale ? "Save changes" : "Record sale"}</Button>
-          </div>
-        </form>
-      </Dialog>
+        sale={editingSale}
+        onSaved={() => refresh()}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}
