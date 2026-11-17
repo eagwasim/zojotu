@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import { Suspense, useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
 import { apiDelete } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { ServiceBoard } from "@/components/services/service-board";
 
 interface ServiceJob {
   id: number;
@@ -70,7 +73,18 @@ function ServicesContent() {
     setSearch,
     search,
     refresh,
-  } = usePaginatedFetch<ServiceJob>({ url: "/api/service-jobs" });
+  } = usePaginatedFetch<ServiceJob>({ url: "/api/service-jobs", ignoreParams: ["new", "view"] });
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const view = params.get("view") === "board" ? "board" : "list";
+  const setView = (v: "list" | "board") => {
+    const sp = new URLSearchParams(params.toString());
+    if (v === "board") sp.set("view", "board");
+    else sp.delete("view");
+    sp.delete("page");
+    router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
+  };
 
   const [searchInput, setSearchInput] = useState(search);
   const [deleteTarget, setDeleteTarget] = useState<ServiceJob | null>(null);
@@ -100,9 +114,35 @@ function ServicesContent() {
     <div className="space-y-6">
       <PageHeader
         title="Service jobs"
-        description={`${total} job${total !== 1 ? "s" : ""} total`}
+        description={view === "board" ? "Open jobs by what needs to happen next." : `${total} job${total !== 1 ? "s" : ""} total`}
+        actions={
+          <div role="radiogroup" aria-label="Layout" className="inline-flex rounded-lg bg-secondary p-1">
+            {(["list", "board"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={view === v}
+                onClick={() => setView(v)}
+                className={
+                  "h-7 rounded-md px-3 text-xs font-medium capitalize transition-[background-color,color,box-shadow] duration-150 " +
+                  (view === v ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        }
       />
 
+      {view === "board" ? (
+        <div className="space-y-4">
+          <SearchInput value={searchInput} onChange={handleSearchChange} placeholder="Search by watch brand or model…" />
+          <ServiceBoard search={search} />
+        </div>
+      ) : (
+        <>
       <div className="space-y-3">
         <SearchInput
           value={searchInput}
@@ -240,6 +280,9 @@ function ServicesContent() {
             pageSize={20}
             onPageChange={setPage}
           />
+        </>
+      )}
+
         </>
       )}
 

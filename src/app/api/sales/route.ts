@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllSales, createSale, getPaginatedSales } from "@/lib/queries/sales";
+import { getAllSales, createSale, getPaginatedSales, SALE_SORTS } from "@/lib/queries/sales";
+import { parseSort } from "@/lib/queries/pagination";
 import { saleSchema } from "@/lib/validators/sale";
 import { requireAdmin } from "@/lib/authorize";
 
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
       pageSize: parseInt(params.get("pageSize") || "20"),
       search: params.get("search") || undefined,
       platform: params.get("platform") || undefined,
+      sort: parseSort(params, SALE_SORTS),
     });
     return NextResponse.json(result);
   }

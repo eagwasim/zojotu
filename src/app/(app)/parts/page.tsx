@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -10,6 +11,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
@@ -18,6 +20,8 @@ import { DateInput } from "@/components/ui/date-input";
 import { CreatableCombobox } from "@/components/ui/creatable-combobox";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { SummaryStrip } from "@/components/lists/summary-strip";
+import { useClearFilters } from "@/components/lists/use-clear-filters";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
 import {
   invalidateSuggestions,
@@ -26,7 +30,8 @@ import {
   withoutKey,
 } from "@/hooks/use-form-data";
 import { apiPost, apiPut, apiDelete, ApiError } from "@/lib/api-client";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import type { PartTotals } from "@/lib/queries/parts";
 
 interface Part {
   id: number;
@@ -35,9 +40,25 @@ interface Part {
   description: string;
   category: string;
   cost: number;
-  supplier?: string;
-  watchBrand?: string;
-  watchModel?: string;
+  supplier?: string | null;
+  watchBrand?: string | null;
+  watchModel?: string | null;
+}
+
+const PAGE_SIZE = 20;
+
+const getWatchLabel = (part: Part) =>
+  part.watchBrand && part.watchModel ? `${part.watchBrand} ${part.watchModel}` : `Watch #${part.watchId}`;
+
+function WatchLink({ part, className }: { part: Part; className?: string }) {
+  return (
+    <Link
+      href={`/inventory/${part.watchId}`}
+      className={cn("underline-offset-2 hover:text-foreground hover:underline", className)}
+    >
+      {getWatchLabel(part)}
+    </Link>
+  );
 }
 
 const CATEGORIES = [
@@ -74,13 +95,18 @@ function PartsContent() {
     page,
     totalPages,
     loading,
+    hasLoaded,
     filters,
     setPage,
     setFilter,
     setSearch,
     search,
     refresh,
-  } = usePaginatedFetch<Part>({ url: "/api/parts" });
+    sort,
+    setSort,
+    meta,
+  } = usePaginatedFetch<Part>({ url: "/api/parts", pageSize: PAGE_SIZE });
+  const clearFilters = useClearFilters();
 
   const [searchInput, setSearchInput] = useState(search);
   const [formOpen, setFormOpen] = useState(false);
@@ -196,18 +222,94 @@ function PartsContent() {
     }
   };
 
-  const getWatchLabel = (part: Part) => {
-    if (part.watchBrand && part.watchModel) {
-      return `${part.watchBrand} ${part.watchModel}`;
-    }
-    return `Watch #${part.watchId}`;
+  const filtered = !!(search || filters.category);
+  const totals = meta.totals as PartTotals | undefined;
+  const refetching = loading && hasLoaded;
+  const showStrip = !hasLoaded || filtered || (totals?.count ?? 0) > 0;
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    clearFilters();
   };
+
+  const columns: Column<Part>[] = [
+    {
+      key: "description",
+      header: "Part",
+      cell: (part) => (
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">{part.description}</p>
+          {/* Watch and date columns are hidden on a phone; keep them visible here. */}
+          <p className="text-xs text-muted-foreground sm:hidden">
+            <WatchLink part={part} /> · {formatDate(part.date)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "watch",
+      header: "Watch",
+      sortable: true,
+      hideBelow: "sm",
+      cell: (part) => <WatchLink part={part} className="text-foreground" />,
+    },
+    {
+      key: "category",
+      header: "Category",
+      sortable: true,
+      hideBelow: "md",
+      cell: (part) => <span className="text-muted-foreground">{part.category}</span>,
+    },
+    {
+      key: "supplier",
+      header: "Supplier",
+      sortable: true,
+      hideBelow: "lg",
+      cell: (part) => <span className="text-muted-foreground">{part.supplier || "—"}</span>,
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortable: true,
+      hideBelow: "sm",
+      className: "whitespace-nowrap",
+      cell: (part) => <span className="text-muted-foreground">{formatDate(part.date)}</span>,
+    },
+    {
+      key: "cost",
+      header: "Cost",
+      align: "right",
+      sortable: true,
+      className: "whitespace-nowrap font-medium text-foreground",
+      cell: (part) => formatCurrency(part.cost),
+    },
+    {
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      align: "right",
+      className: "py-2 pl-2",
+      cell: (part) => (
+        <div className="flex items-center justify-end gap-2">
+          <IconButton aria-label={`Edit ${part.description}`} onClick={() => openForm(part)}>
+            <Pencil />
+          </IconButton>
+          <IconButton
+            tone="destructive"
+            aria-label={`Delete ${part.description}`}
+            onClick={() => setDeleteTarget(part)}
+          >
+            <Trash2 />
+          </IconButton>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Parts and mods"
-        description={`${total} part${total !== 1 ? "s" : ""} tracked`}
+        description="Parts and modifications, counted in each watch's cost."
         actions={
           <Button onClick={() => openForm(null)}>
             <Plus />
@@ -220,7 +322,8 @@ function PartsContent() {
         <SearchInput
           value={searchInput}
           onChange={handleSearchChange}
-          placeholder="Search by description…"
+          placeholder="Search parts, watches or suppliers…"
+          className="sm:max-w-sm"
         />
         <div className="w-full sm:w-48">
           <Select
@@ -233,78 +336,68 @@ function PartsContent() {
         </div>
       </div>
 
-      {loading ? (
-        <TableSkeleton cols={7} />
-      ) : parts.length === 0 ? (
-        <EmptyState
-          title="No parts recorded yet"
-          description="Add a part to track what you spend on modifications for each watch."
-          action={
-            <Button variant="secondary" size="sm" onClick={() => openForm(null)}>
-              <Plus />
-              Add part
-            </Button>
+      {showStrip && (
+        <SummaryStrip
+          filtered={filtered}
+          stale={refetching}
+          items={[
+            { label: "Parts", value: totals && String(totals.count) },
+            { label: "Total cost", value: totals && formatCurrency(totals.cost) },
+            {
+              label: "Average per part",
+              value: totals && (totals.count > 0 ? formatCurrency(totals.cost / totals.count) : "—"),
+            },
+          ]}
+        />
+      )}
+
+      <div aria-busy={loading} className={cn("space-y-4 transition-opacity duration-150", refetching && "opacity-60")}>
+        <DataTable
+          columns={columns}
+          rows={parts}
+          getRowId={(part) => part.id}
+          loading={!hasLoaded}
+          sort={sort}
+          onSortChange={setSort}
+          caption="Parts and mods"
+          empty={
+            filtered ? (
+              <EmptyState
+                icon={Wrench}
+                title="No parts match these filters"
+                description="Try another search term or category."
+                action={
+                  <Button variant="secondary" size="sm" onClick={handleClearFilters}>
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={Wrench}
+                title="No parts recorded yet"
+                description="Add a part or mod against a watch. Its cost is added to that watch's cost basis and profit."
+                action={
+                  <Button size="sm" onClick={() => openForm(null)}>
+                    <Plus />
+                    Add part
+                  </Button>
+                }
+              />
+            )
           }
         />
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Watch</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Description</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Category</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Cost</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Supplier</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Date</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parts.map((part) => (
-                  <tr
-                    key={part.id}
-                    className="border-t border-border transition-colors first:border-t-0 hover:bg-accent/50"
-                  >
-                    <td className="px-4 py-3 font-medium text-foreground">{getWatchLabel(part)}</td>
-                    <td className="px-4 py-3 text-foreground">{part.description}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{part.category}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-foreground">{formatCurrency(part.cost)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{part.supplier || "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(part.date)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <IconButton
-                          aria-label={`Edit ${part.description}`}
-                          onClick={() => openForm(part)}
-                        >
-                          <Pencil />
-                        </IconButton>
-                        <IconButton
-                          tone="destructive"
-                          aria-label={`Delete ${part.description}`}
-                          onClick={() => setDeleteTarget(part)}
-                        >
-                          <Trash2 />
-                        </IconButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
 
+        {parts.length > 0 && (
           <Pagination
             page={page}
             totalPages={totalPages}
             total={total}
-            pageSize={20}
+            pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
-        </>
-      )}
+        )}
+      </div>
 
       <Dialog
         open={formOpen}

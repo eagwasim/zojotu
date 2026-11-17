@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllParts, createPart, getPaginatedParts } from "@/lib/queries/parts";
+import { getAllParts, createPart, getPaginatedParts, PART_SORTS } from "@/lib/queries/parts";
+import { parseSort } from "@/lib/queries/pagination";
 import { partSchema } from "@/lib/validators/part";
 import { requireAdmin } from "@/lib/authorize";
 
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
       search: params.get("search") || undefined,
       category: params.get("category") || undefined,
       watchId: params.get("watchId") ? parseInt(params.get("watchId")!) : undefined,
+      sort: parseSort(params, PART_SORTS),
     });
     return NextResponse.json(result);
   }

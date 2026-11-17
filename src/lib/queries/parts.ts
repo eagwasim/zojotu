@@ -1,7 +1,8 @@
 import { db } from "../db";
 import { parts, watches } from "../db/schema";
-import { eq, desc, and, sql, or } from "drizzle-orm";
-import { paginatedResult, type PaginatedResult } from "./pagination";
+import { eq, desc, asc, and, sql, or, type SQL } from "drizzle-orm";
+import { paginatedResult, type SortDir } from "./pagination";
+import { sumMoney, toCount, toMoney } from "./list-totals";
 
 export async function getAllParts(watchId?: number) {
   if (watchId) {
@@ -14,15 +15,60 @@ export async function getAllParts(watchId?: number) {
   return db.select().from(parts).orderBy(desc(parts.createdAt));
 }
 
+export const PART_SORTS = ["date", "cost", "category", "watch", "supplier"] as const;
+export type PartSort = (typeof PART_SORTS)[number];
+
+export interface PartListRow {
+  id: number;
+  watchId: number;
+  date: string;
+  description: string;
+  category: string;
+  cost: number;
+  supplier: string | null;
+  createdAt: string | null;
+  watchBrand: string | null;
+  watchModel: string | null;
+}
+
+export interface PartTotals {
+  count: number;
+  cost: number;
+}
+
+function partOrder(sort: { key: PartSort; dir: SortDir } | null) {
+  if (!sort) return [desc(parts.date), desc(parts.id)];
+  const by = sort.dir === "desc" ? desc : asc;
+  switch (sort.key) {
+    case "date":
+      return [by(parts.date), by(parts.id)];
+    case "cost":
+      return [by(parts.cost), desc(parts.date), desc(parts.id)];
+    case "category":
+      return [by(sql`LOWER(${parts.category})`), desc(parts.date), desc(parts.id)];
+    case "watch":
+      return [by(sql`LOWER(${watches.brand})`), by(sql`LOWER(${watches.model})`), desc(parts.date), desc(parts.id)];
+    // Parts without a supplier always sort last, whichever the direction.
+    case "supplier":
+      return [
+        asc(sql`CASE WHEN ${parts.supplier} IS NULL OR ${parts.supplier} = '' THEN 1 ELSE 0 END`),
+        by(sql`LOWER(${parts.supplier})`),
+        desc(parts.date),
+        desc(parts.id),
+      ];
+  }
+}
+
 export async function getPaginatedParts(params: {
   page: number;
   pageSize: number;
   search?: string;
   category?: string;
   watchId?: number;
-}): Promise<PaginatedResult<any>> {
-  const { page, pageSize, search, category, watchId } = params;
-  const conditions: any[] = [];
+  sort?: { key: PartSort; dir: SortDir } | null;
+}) {
+  const { page, pageSize, search, category, watchId, sort = null } = params;
+  const conditions: SQL[] = [];
 
   if (category) {
     conditions.push(eq(parts.category, category));
@@ -32,20 +78,26 @@ export async function getPaginatedParts(params: {
   }
   if (search) {
     const term = `%${search.toLowerCase()}%`;
-    conditions.push(sql`LOWER(${parts.description}) LIKE ${term}`);
+    conditions.push(
+      or(
+        sql`LOWER(${parts.description}) LIKE ${term}`,
+        sql`LOWER(COALESCE(${parts.supplier}, '')) LIKE ${term}`,
+        sql`LOWER(${watches.brand} || ' ' || ${watches.model}) LIKE ${term}`
+      )!
+    );
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [countResult] = await db
-    .select({ count: sql<number>`COUNT(*)` })
+  const [agg] = await db
+    .select({ count: sql<number>`COUNT(*)`, cost: sumMoney(parts.cost) })
     .from(parts)
     .leftJoin(watches, eq(parts.watchId, watches.id))
     .where(where);
 
-  const total = Number(countResult.count);
+  const totals: PartTotals = { count: toCount(agg?.count), cost: toMoney(agg?.cost) };
 
-  const data = await db
+  const data: PartListRow[] = await db
     .select({
       id: parts.id,
       watchId: parts.watchId,
@@ -61,11 +113,11 @@ export async function getPaginatedParts(params: {
     .from(parts)
     .leftJoin(watches, eq(parts.watchId, watches.id))
     .where(where)
-    .orderBy(desc(parts.createdAt))
+    .orderBy(...partOrder(sort))
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
-  return paginatedResult(data, total, page, pageSize);
+  return { ...paginatedResult(data, totals.count, page, pageSize), totals };
 }
 
 export async function getPartById(id: number) {

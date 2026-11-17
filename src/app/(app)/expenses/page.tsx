@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -10,15 +10,19 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { DateInput } from "@/components/ui/date-input";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { SummaryStrip, type SummaryItem } from "@/components/lists/summary-strip";
+import { useClearFilters } from "@/components/lists/use-clear-filters";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
 import { apiPost, apiPut, apiDelete } from "@/lib/api-client";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import type { ExpenseTotals } from "@/lib/queries/expenses";
 
 interface Expense {
   id: number;
@@ -27,6 +31,8 @@ interface Expense {
   description: string;
   amount: number;
 }
+
+const PAGE_SIZE = 20;
 
 const CATEGORIES = [
   "Tools",
@@ -60,13 +66,18 @@ function ExpensesContent() {
     page,
     totalPages,
     loading,
+    hasLoaded,
     filters,
     setPage,
     setFilter,
     setSearch,
     search,
     refresh,
-  } = usePaginatedFetch<Expense>({ url: "/api/expenses" });
+    sort,
+    setSort,
+    meta,
+  } = usePaginatedFetch<Expense>({ url: "/api/expenses", pageSize: PAGE_SIZE });
+  const clearFilters = useClearFilters();
 
   const [searchInput, setSearchInput] = useState(search);
   const [formOpen, setFormOpen] = useState(false);
@@ -130,11 +141,95 @@ function ExpensesContent() {
     }
   };
 
+  const filtered = !!(search || filters.category);
+  const totals = meta.totals as ExpenseTotals | undefined;
+  const refetching = loading && hasLoaded;
+  const showStrip = !hasLoaded || filtered || (totals?.count ?? 0) > 0;
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    clearFilters();
+  };
+
+  const summary: SummaryItem[] = [
+    { label: "Total spent", value: totals && formatCurrency(totals.amount) },
+    { label: "Expenses", value: totals && String(totals.count) },
+  ];
+  // The biggest categories, unless a category filter already narrows it to one.
+  if (totals && !filters.category) {
+    for (const c of totals.byCategory.slice(0, 2)) {
+      summary.push({
+        label: c.category,
+        value: formatCurrency(c.amount),
+        hint: totals.amount > 0 ? `${Math.round((c.amount / totals.amount) * 100)}% of spend` : undefined,
+      });
+    }
+  }
+
+  const columns: Column<Expense>[] = [
+    {
+      key: "description",
+      header: "Description",
+      cell: (expense) => (
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">{expense.description}</p>
+          {/* Category and date columns are hidden on a phone; keep them visible here. */}
+          <p className="text-xs text-muted-foreground sm:hidden">
+            {expense.category} · {formatDate(expense.date)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      sortable: true,
+      hideBelow: "sm",
+      cell: (expense) => <span className="text-muted-foreground">{expense.category}</span>,
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortable: true,
+      hideBelow: "sm",
+      className: "whitespace-nowrap",
+      cell: (expense) => <span className="text-muted-foreground">{formatDate(expense.date)}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      sortable: true,
+      className: "whitespace-nowrap font-medium text-foreground",
+      cell: (expense) => formatCurrency(expense.amount),
+    },
+    {
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      align: "right",
+      className: "py-2 pl-2",
+      cell: (expense) => (
+        <div className="flex items-center justify-end gap-2">
+          <IconButton aria-label={`Edit ${expense.description}`} onClick={() => openForm(expense)}>
+            <Pencil />
+          </IconButton>
+          <IconButton
+            aria-label={`Delete ${expense.description}`}
+            tone="destructive"
+            onClick={() => setDeleteTarget(expense)}
+          >
+            <Trash2 />
+          </IconButton>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Expenses"
-        description={`${total} expense${total !== 1 ? "s" : ""} recorded`}
+        description="Business costs that aren't tied to a single watch: tools, supplies, software."
         actions={
           <Button onClick={() => openForm(null)}>
             <Plus />
@@ -143,7 +238,7 @@ function ExpensesContent() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <SearchInput
           value={searchInput}
           onChange={handleSearchChange}
@@ -152,7 +247,7 @@ function ExpensesContent() {
         />
         <div className="w-full sm:w-56">
           <Select
-            label="Category"
+            aria-label="Category"
             value={filters.category || ""}
             onChange={(e) => setFilter("category", e.target.value)}
             placeholder="All categories"
@@ -161,82 +256,55 @@ function ExpensesContent() {
         </div>
       </div>
 
-      {loading ? (
-        <TableSkeleton cols={5} />
-      ) : expenses.length === 0 ? (
-        <EmptyState
-          title={search || filters.category ? "No expenses match your filters" : "No expenses recorded yet"}
-          description={
-            search || filters.category
-              ? "Try a different search term or category."
-              : "Add tools, parts and other business costs to track them against revenue."
-          }
-          action={
-            !(search || filters.category) && (
-              <Button onClick={() => openForm(null)}>
-                <Plus />
-                Add expense
-              </Button>
+      {showStrip && <SummaryStrip filtered={filtered} stale={refetching} items={summary} />}
+
+      <div aria-busy={loading} className={cn("space-y-4 transition-opacity duration-150", refetching && "opacity-60")}>
+        <DataTable
+          columns={columns}
+          rows={expenses}
+          getRowId={(expense) => expense.id}
+          loading={!hasLoaded}
+          sort={sort}
+          onSortChange={setSort}
+          caption="Expenses"
+          empty={
+            filtered ? (
+              <EmptyState
+                icon={Wallet}
+                title="No expenses match these filters"
+                description="Try another search term or category."
+                action={
+                  <Button variant="secondary" size="sm" onClick={handleClearFilters}>
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={Wallet}
+                title="No expenses recorded yet"
+                description="Add tools, supplies and other running costs so the dashboard can net them off your profit."
+                action={
+                  <Button size="sm" onClick={() => openForm(null)}>
+                    <Plus />
+                    Add expense
+                  </Button>
+                }
+              />
             )
           }
         />
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Description</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Category</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Amount</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Date</th>
-                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((expense) => (
-                  <tr
-                    key={expense.id}
-                    className="border-t border-border transition-colors hover:bg-accent/50"
-                  >
-                    <td className="px-4 py-3 font-medium text-foreground">{expense.description}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{expense.category}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-foreground">{formatCurrency(expense.amount)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(expense.date)}</td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center justify-end gap-2">
-                        <IconButton
-                          aria-label={`Edit ${expense.description}`}
-                          onClick={() => openForm(expense)}
-                        >
-                          <Pencil />
-                        </IconButton>
-                        <IconButton
-                          aria-label={`Delete ${expense.description}`}
-                          tone="destructive"
-                          onClick={() => setDeleteTarget(expense)}
-                        >
-                          <Trash2 />
-                        </IconButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
 
+        {expenses.length > 0 && (
           <Pagination
             page={page}
             totalPages={totalPages}
             total={total}
-            pageSize={20}
+            pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
-        </>
-      )}
+        )}
+      </div>
 
       <Dialog
         open={formOpen}
