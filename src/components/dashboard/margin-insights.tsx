@@ -1,76 +1,77 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { TrendingUp, Percent, Info } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
 import type { PlatformPerformance } from "@/lib/queries/dashboard";
 
+/** Fee rates above this are flagged. */
+const HIGH_FEE = 0.1;
+
 export function MarginInsights({ data }: { data: PlatformPerformance }) {
   const recommendations = data.revenueByPlatform
-    .filter(p => p.margin > 0.15) // High margin platforms
+    .filter((p) => p.margin > 0.15)
     .sort((a, b) => b.margin - a.margin)
     .slice(0, 2);
+
+  const byFee = data.revenueByPlatform
+    .map((p) => ({ ...p, feeRatio: p.revenue > 0 ? p.fees / p.revenue : 0 }))
+    .sort((a, b) => b.feeRatio - a.feeRatio);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Fee Impact Analysis
-          </CardTitle>
-          <Percent className="h-4 w-4 text-muted-foreground" />
+        <CardHeader>
+          <CardTitle>Fees</CardTitle>
+          <CardDescription>
+            {formatPercentage(data.feePercentage)} of revenue, {formatCurrency(data.totalFees)} in total.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatPercentage(data.feePercentage)}</div>
-          <p className="text-xs text-muted-foreground">
-            Total fees: {formatCurrency(data.totalFees)}
-          </p>
-          <div className="mt-4 space-y-2">
-            {data.revenueByPlatform.slice(0, 3).map((p) => {
-              const feeRatio = p.revenue > 0 ? p.fees / p.revenue : 0;
-              return (
-                <div key={p.platform} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{p.platform}</span>
-                  <span className={feeRatio > 0.1 ? "text-red-400" : "text-green-400"}>
-                    {formatPercentage(feeRatio)} fee rate
+          {byFee.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No sales yet.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {byFee.map((p) => (
+                <li key={p.platform} className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-foreground">{p.platform}</span>
+                  <span className="flex items-center gap-2 tabular-nums">
+                    {p.feeRatio > HIGH_FEE && (
+                      <span className="rounded-full bg-serious-wash px-2 py-0.5 text-xs font-medium text-serious-ink">
+                        High
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">{formatPercentage(p.feeRatio)}</span>
                   </span>
-                </div>
-              );
-            })}
-          </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Strategic Recommendations
-          </CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        <CardHeader>
+          <CardTitle>Where to sell</CardTitle>
+          <CardDescription>Platforms with a margin above 15%.</CardDescription>
         </CardHeader>
         <CardContent>
           {recommendations.length > 0 ? (
-            <div className="space-y-4">
-              {recommendations.map((p, i) => (
-                <div key={p.platform} className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <Info className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Prioritize {p.platform}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Delivers {formatPercentage(p.margin)} net margin. Consider moving more high-value inventory here.
-                    </p>
-                  </div>
-                </div>
+            <ul className="flex flex-col gap-4">
+              {recommendations.map((p) => (
+                <li key={p.platform} className="flex flex-col gap-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {p.platform}: {formatPercentage(p.margin)} margin
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Consider listing more of your higher-value stock here.
+                  </p>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
-              Collect more data for recommendations
-            </div>
+            <p className="text-sm text-muted-foreground">
+              No platform is above 15% margin yet. Suggestions appear as more sales come in.
+            </p>
           )}
         </CardContent>
       </Card>

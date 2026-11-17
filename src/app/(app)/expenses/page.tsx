@@ -1,9 +1,13 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/filter-bar";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -100,106 +104,99 @@ function ExpensesContent() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Expenses</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} expense{total !== 1 ? "s" : ""} recorded
-          </p>
-        </div>
-        <Button onClick={() => { setEditingExpense(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Expenses"
+        description={`${total} expense${total !== 1 ? "s" : ""} recorded`}
+        actions={
+          <Button onClick={() => { setEditingExpense(null); setFormOpen(true); }}>
+            <Plus />
+            Add expense
+          </Button>
+        }
+      />
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by description..."
-            className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <SearchInput
+          value={searchInput}
+          onChange={handleSearchChange}
+          placeholder="Search by description…"
+          className="sm:max-w-sm"
+        />
+        <div className="w-full sm:w-56">
+          <Select
+            label="Category"
+            value={filters.category || ""}
+            onChange={(e) => setFilter("category", e.target.value)}
+            placeholder="All categories"
+            options={CATEGORIES.map((c) => ({ value: c, label: c }))}
           />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-md">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
-            <select
-              value={filters.category || ""}
-              onChange={(e) => setFilter("category", e.target.value)}
-              className="block w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <TableSkeleton cols={5} />
       ) : expenses.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">No expenses recorded yet</p>
-        </div>
+        <EmptyState
+          title={search || filters.category ? "No expenses match your filters" : "No expenses recorded yet"}
+          description={
+            search || filters.category
+              ? "Try a different search term or category."
+              : "Add tools, parts and other business costs to track them against revenue."
+          }
+          action={
+            !(search || filters.category) && (
+              <Button onClick={() => { setEditingExpense(null); setFormOpen(true); }}>
+                <Plus />
+                Add expense
+              </Button>
+            )
+          }
+        />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Amount</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Description</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Category</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Amount</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Date</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence>
-                  {expenses.map((expense) => (
-                    <motion.tr
-                      key={expense.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-border transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">{expense.description}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{expense.category}</td>
-                      <td className="px-4 py-3 font-mono text-foreground">{formatCurrency(expense.amount)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(expense.date)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingExpense(expense); setFormOpen(true); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(expense)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                {expenses.map((expense) => (
+                  <tr
+                    key={expense.id}
+                    className="border-t border-border transition-colors hover:bg-accent/50"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">{expense.description}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{expense.category}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">{formatCurrency(expense.amount)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDate(expense.date)}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <IconButton
+                          aria-label={`Edit ${expense.description}`}
+                          onClick={() => { setEditingExpense(expense); setFormOpen(true); }}
+                        >
+                          <Pencil />
+                        </IconButton>
+                        <IconButton
+                          aria-label={`Delete ${expense.description}`}
+                          tone="destructive"
+                          onClick={() => setDeleteTarget(expense)}
+                        >
+                          <Trash2 />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -217,7 +214,7 @@ function ExpensesContent() {
       <Dialog
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingExpense(null); }}
-        title={editingExpense ? "Edit Expense" : "Add Expense"}
+        title={editingExpense ? "Edit expense" : "Add expense"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -254,7 +251,7 @@ function ExpensesContent() {
             <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingExpense(null); }}>
               Cancel
             </Button>
-            <Button type="submit">{editingExpense ? "Save" : "Add Expense"}</Button>
+            <Button type="submit">{editingExpense ? "Save changes" : "Add expense"}</Button>
           </div>
         </form>
       </Dialog>
@@ -263,17 +260,17 @@ function ExpensesContent() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Expense"
+        title="Delete expense"
         message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }
 
 export default function ExpensesPage() {
   return (
-    <Suspense fallback={<div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense fallback={<TableSkeleton cols={5} />}>
       <ExpensesContent />
     </Suspense>
   );

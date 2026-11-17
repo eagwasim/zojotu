@@ -1,20 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
-import {
-  PlusCircle,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Watch,
-  Wrench,
-  Package,
-  Bell,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PlusCircle, Clock, CheckCircle2, Watch, Wrench, Package, Bell } from "lucide-react";
+import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 
 interface JobSummary {
@@ -33,26 +27,18 @@ interface DashboardStats {
   unreadNotifications: number;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  Pending: "text-yellow-500",
-  Accepted: "text-blue-500",
-  Refused: "text-red-500",
-  Shipped: "text-indigo-500",
-  Received: "text-purple-500",
-  Diagnosed: "text-cyan-500",
-  "In Progress": "text-amber-500",
-  Completed: "text-green-500",
-  Collected: "text-zinc-500",
-};
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
+const STATUS_TONE: Record<string, BadgeTone> = {
+  Pending: "warning",
+  Accepted: "info",
+  Shipped: "info",
+  Received: "info",
+  Diagnosed: "info",
+  "In Progress": "info",
+  Completed: "good",
+  Collected: "neutral",
+  Refused: "critical",
+  Rejected: "critical",
+  Cancelled: "critical",
 };
 
 export default function PortalDashboard() {
@@ -96,99 +82,59 @@ export default function PortalDashboard() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[88px] rounded-xl" />
+          ))}
+        </div>
+        <TableSkeleton rows={5} cols={4} />
       </div>
     );
   }
 
+  const statTiles = [
+    { label: "Total jobs", value: stats.total, icon: Watch },
+    { label: "In progress", value: stats.active, icon: Wrench },
+    { label: "Completed", value: stats.completed, icon: CheckCircle2 },
+    { label: "Unread notifications", value: stats.unreadNotifications, icon: Bell },
+  ];
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">My Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Welcome to Zojotu service portal
-          </p>
-        </div>
-        <Link href="/portal/jobs/new">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Request Service
-          </Button>
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="My dashboard"
+        description="Welcome to the Zojotu service portal"
+        actions={
+          <Link href="/portal/jobs/new" className={buttonClasses()}>
+            <PlusCircle />
+            Request service
+          </Link>
+        }
+      />
 
       {/* Stats cards */}
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-2 gap-4 sm:grid-cols-4"
-      >
-        <motion.div variants={item}>
-          <Card>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {statTiles.map((tile) => (
+          <Card key={tile.label}>
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <Watch className="h-5 w-5 text-primary" />
+              <div className="rounded-lg bg-secondary p-2.5">
+                <tile.icon aria-hidden className="h-5 w-5 text-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Total Jobs</p>
+                <p className="text-2xl font-semibold tabular-nums text-foreground">{tile.value}</p>
+                <p className="text-xs text-muted-foreground">{tile.label}</p>
               </div>
             </div>
           </Card>
-        </motion.div>
-        <motion.div variants={item}>
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-amber-500/10 p-2.5">
-                <Wrench className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.active}</p>
-                <p className="text-xs text-muted-foreground">In Progress</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-        <motion.div variants={item}>
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-green-500/10 p-2.5">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
-                <p className="text-xs text-muted-foreground">Completed</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-        <motion.div variants={item}>
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-500/10 p-2.5">
-                <Bell className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.unreadNotifications}</p>
-                <p className="text-xs text-muted-foreground">Unread</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      </motion.div>
+        ))}
+      </div>
 
       {/* Pending notice */}
       {stats.pending > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
-          <Clock className="h-5 w-5 text-yellow-500" />
-          <p className="text-sm text-foreground">
+        <div className="flex items-center gap-3 rounded-lg bg-warning-wash px-4 py-3">
+          <Clock aria-hidden className="h-5 w-5 text-warning-ink" />
+          <p className="text-sm text-warning-ink">
             You have <strong>{stats.pending}</strong> request{stats.pending !== 1 ? "s" : ""} awaiting review.
           </p>
         </div>
@@ -197,58 +143,46 @@ export default function PortalDashboard() {
       {/* Recent jobs */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Recent Jobs</h2>
+          <h2 className="text-lg font-semibold text-foreground">Recent jobs</h2>
           {stats.total > 0 && (
-            <Link href="/portal/jobs" className="text-sm text-primary hover:underline">
-              View all
+            <Link href="/portal/jobs" className="text-sm text-link hover:underline">
+              View all jobs
             </Link>
           )}
         </div>
 
         {activeJobs.length === 0 && stats.total === 0 ? (
-          <Card>
-            <div className="flex flex-col items-center justify-center py-12">
-              <Package className="h-10 w-10 text-muted-foreground" />
-              <p className="mt-3 text-sm text-muted-foreground">
-                No service requests yet
-              </p>
-              <Link href="/portal/jobs/new" className="mt-3">
-                <Button variant="secondary" size="sm">
-                  Request your first service
-                </Button>
+          <EmptyState
+            icon={Package}
+            title="No service requests yet"
+            description="Tell us about your watch and what needs doing, and we'll review your request."
+            action={
+              <Link href="/portal/jobs/new" className={buttonClasses({ variant: "secondary", size: "sm" })}>
+                Request your first service
               </Link>
-            </div>
-          </Card>
+            }
+          />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Watch</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Submitted</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground"></th>
+                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">Watch</th>
+                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">Submitted</th>
+                  <th className="border-b border-border px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {jobs.slice(0, 5).map((job) => (
-                  <tr key={job.id} className="border-t border-border transition-colors hover:bg-muted/30">
+                  <tr key={job.id} className="border-t border-border transition-colors hover:bg-accent/50">
                     <td className="px-4 py-3 font-medium text-foreground">
                       {job.watchBrand} {job.watchModel}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        {job.status === "Completed" || job.status === "Collected" ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                        ) : job.status === "Refused" ? (
-                          <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <span className={`text-sm font-medium ${STATUS_COLORS[job.status] || "text-muted-foreground"}`}>
-                          {job.status}
-                        </span>
-                      </div>
+                      <Badge tone={STATUS_TONE[job.status] ?? "neutral"}>{job.status}</Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatDate(job.createdAt)}
@@ -256,7 +190,7 @@ export default function PortalDashboard() {
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/portal/jobs/${job.id}`}
-                        className="text-sm text-primary hover:underline"
+                        className="text-sm text-link hover:underline"
                       >
                         View
                       </Link>
@@ -268,6 +202,6 @@ export default function PortalDashboard() {
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

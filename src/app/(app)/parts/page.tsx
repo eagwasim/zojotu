@@ -1,9 +1,13 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/filter-bar";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -116,110 +120,94 @@ function PartsContent() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Parts & Mods</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} part{total !== 1 ? "s" : ""} tracked
-          </p>
-        </div>
-        <Button onClick={() => { setEditingPart(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Part
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Parts and mods"
+        description={`${total} part${total !== 1 ? "s" : ""} tracked`}
+        actions={
+          <Button onClick={() => { setEditingPart(null); setFormOpen(true); }}>
+            <Plus />
+            Add part
+          </Button>
+        }
+      />
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by description..."
-            className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SearchInput
+          value={searchInput}
+          onChange={handleSearchChange}
+          placeholder="Search by description…"
+        />
+        <div className="w-full sm:w-48">
+          <Select
+            aria-label="Category"
+            value={filters.category || ""}
+            onChange={(e) => setFilter("category", e.target.value)}
+            placeholder="All categories"
+            options={CATEGORIES.map((c) => ({ value: c, label: c }))}
           />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-md">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
-            <select
-              value={filters.category || ""}
-              onChange={(e) => setFilter("category", e.target.value)}
-              className="block w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <TableSkeleton cols={7} />
       ) : parts.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">No parts recorded yet</p>
-        </div>
+        <EmptyState
+          title="No parts recorded yet"
+          description="Add a part to track what you spend on modifications for each watch."
+          action={
+            <Button variant="secondary" size="sm" onClick={() => { setEditingPart(null); setFormOpen(true); }}>
+              <Plus />
+              Add part
+            </Button>
+          }
+        />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Watch</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cost</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Supplier</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Watch</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Description</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Category</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Cost</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Supplier</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Date</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence>
-                  {parts.map((part) => (
-                    <motion.tr
-                      key={part.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-border transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">{getWatchLabel(part)}</td>
-                      <td className="px-4 py-3 text-foreground">{part.description}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{part.category}</td>
-                      <td className="px-4 py-3 font-mono text-foreground">{formatCurrency(part.cost)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{part.supplier || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(part.date)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingPart(part); setFormOpen(true); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(part)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                {parts.map((part) => (
+                  <tr
+                    key={part.id}
+                    className="border-t border-border transition-colors first:border-t-0 hover:bg-accent/50"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">{getWatchLabel(part)}</td>
+                    <td className="px-4 py-3 text-foreground">{part.description}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{part.category}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">{formatCurrency(part.cost)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{part.supplier || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDate(part.date)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <IconButton
+                          aria-label={`Edit ${part.description}`}
+                          onClick={() => { setEditingPart(part); setFormOpen(true); }}
+                        >
+                          <Pencil />
+                        </IconButton>
+                        <IconButton
+                          tone="destructive"
+                          aria-label={`Delete ${part.description}`}
+                          onClick={() => setDeleteTarget(part)}
+                        >
+                          <Trash2 />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -237,7 +225,7 @@ function PartsContent() {
       <Dialog
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingPart(null); }}
-        title={editingPart ? "Edit Part" : "Add Part"}
+        title={editingPart ? "Edit part" : "Add part"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Combobox
@@ -289,7 +277,7 @@ function PartsContent() {
             <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingPart(null); }}>
               Cancel
             </Button>
-            <Button type="submit">{editingPart ? "Save" : "Add Part"}</Button>
+            <Button type="submit">{editingPart ? "Save changes" : "Add part"}</Button>
           </div>
         </form>
       </Dialog>
@@ -298,17 +286,17 @@ function PartsContent() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Part"
+        title="Delete part"
         message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }
 
 export default function PartsPage() {
   return (
-    <Suspense fallback={<div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense fallback={<TableSkeleton cols={7} />}>
       <PartsContent />
     </Suspense>
   );

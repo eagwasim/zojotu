@@ -1,81 +1,72 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { chrome, series } from "@/lib/chart-theme";
+import { ChartEmpty } from "./chart-tooltip";
 
 interface StatusData {
   status: string;
   count: number;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  "In Inventory": "#34d399",
-  Modding: "#60a5fa",
-  Listed: "#fbbf24",
-  Sold: "#a1a1aa",
-};
+// Same stage colours as StatusBadge, in lifecycle order.
+const STAGES = [
+  { status: "In Inventory", color: series[0] },
+  { status: "Modding", color: series[3] },
+  { status: "Listed", color: series[2] },
+  { status: "Sold", color: chrome.other },
+];
 
+/** Part-to-whole across four stages: one segmented bar with a labelled legend, not a donut. */
 export function InventoryStatusChart({ data }: { data: StatusData[] }) {
+  const counts = new Map(data.map((d) => [d.status, d.count]));
+  const rows = [
+    ...STAGES.map((s) => ({ ...s, count: counts.get(s.status) ?? 0 })),
+    ...data
+      .filter((d) => !STAGES.some((s) => s.status === d.status))
+      .map((d) => ({ status: d.status, color: chrome.other, count: d.count })),
+  ];
+  const total = rows.reduce((s, r) => s + r.count, 0);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Inventory by Status
-        </CardTitle>
+        <CardTitle>Watches by stage</CardTitle>
+        <CardDescription>{total} watches tracked in total.</CardDescription>
       </CardHeader>
       <CardContent>
-        {data.length === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
-            No watches yet
-          </div>
+        {total === 0 ? (
+          <ChartEmpty height={160}>Add a watch to start tracking stock.</ChartEmpty>
         ) : (
-          <div className="flex items-center gap-6">
-            <ResponsiveContainer width="60%" height={200}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  dataKey="count"
-                  nameKey="status"
-                  strokeWidth={2}
-                  stroke="oklch(0.14 0.01 260)"
-                >
-                  {data.map((entry) => (
-                    <Cell
-                      key={entry.status}
-                      fill={STATUS_COLORS[entry.status] || "#a1a1aa"}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "oklch(0.14 0.01 260)",
-                    border: "1px solid oklch(0.25 0.01 260)",
-                    borderRadius: "8px",
-                    color: "oklch(0.95 0.01 260)",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-2">
-              {data.map((entry) => (
-                <div key={entry.status} className="flex items-center gap-2">
+          <div className="flex flex-col gap-5">
+            <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full" role="img" aria-label={rows.map((r) => `${r.status} ${r.count}`).join(", ")}>
+              {rows
+                .filter((r) => r.count > 0)
+                .map((r) => (
                   <div
-                    className="h-3 w-3 rounded-full"
-                    style={{
-                      backgroundColor:
-                        STATUS_COLORS[entry.status] || "#a1a1aa",
-                    }}
+                    key={r.status}
+                    title={`${r.status}: ${r.count}`}
+                    className="h-full first:rounded-l-full last:rounded-r-full"
+                    style={{ width: `${(r.count / total) * 100}%`, background: r.color }}
                   />
-                  <span className="text-sm text-muted-foreground">
-                    {entry.status} ({entry.count})
-                  </span>
+                ))}
+            </div>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              {rows.map((r) => (
+                <div key={r.status} className="flex flex-col gap-0.5">
+                  <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span aria-hidden className="size-2 rounded-full" style={{ background: r.color }} />
+                    {r.status}
+                  </dt>
+                  <dd className="text-lg font-semibold tabular-nums text-foreground">
+                    {r.count}
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      {Math.round((r.count / total) * 100)}%
+                    </span>
+                  </dd>
                 </div>
               ))}
-            </div>
+            </dl>
           </div>
         )}
       </CardContent>

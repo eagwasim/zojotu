@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -13,6 +12,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { buttonClasses } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 
@@ -45,7 +48,7 @@ const STATUS_STEPS = [
   { key: "Accepted", label: "Accepted", icon: CheckCircle2 },
   { key: "Shipped", label: "Shipped", icon: Truck },
   { key: "Received", label: "Received", icon: Package },
-  { key: "In Progress", label: "In Progress", icon: Wrench },
+  { key: "In Progress", label: "In progress", icon: Wrench },
   { key: "Completed", label: "Completed", icon: CheckCircle2 },
   { key: "Collected", label: "Collected", icon: CheckCircle2 },
 ];
@@ -64,8 +67,13 @@ export default function PortalJobDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div role="status" aria-label="Loading" className="space-y-6">
+        <Skeleton className="h-16 w-72" />
+        <Skeleton className="h-28 rounded-xl" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -76,34 +84,27 @@ export default function PortalJobDetailPage() {
   const currentStepIdx = STATUS_STEPS.findIndex((s) => s.key === job.status);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center gap-3">
-        <Link
-          href="/portal/jobs"
-          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {job.watchBrand} {job.watchModel}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Job #{job.id} — Submitted {formatDate(job.createdAt)}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow={
+          <Link
+            href="/portal/jobs"
+            className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft aria-hidden className="h-4 w-4" />
+            My service jobs
+          </Link>
+        }
+        title={`${job.watchBrand} ${job.watchModel}`}
+        description={`Job #${job.id} — Submitted ${formatDate(job.createdAt)}`}
+      />
 
       {isRefused ? (
         <Card>
           <div className="flex items-start gap-3">
-            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+            <XCircle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-critical-ink" />
             <div>
-              <p className="font-medium text-red-500">Request Declined</p>
+              <p className="font-medium text-critical-ink">Request declined</p>
               <p className="mt-1 text-sm text-foreground">
                 {job.rejectionReason}
               </p>
@@ -112,8 +113,8 @@ export default function PortalJobDetailPage() {
         </Card>
       ) : (
         <Card>
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Service Progress
+          <h3 className="text-sm font-semibold text-foreground">
+            Service progress
           </h3>
           <div className="mt-4 flex items-center gap-1">
             {STATUS_STEPS.map((step, idx) => {
@@ -122,11 +123,12 @@ export default function PortalJobDetailPage() {
               return (
                 <div key={step.key} className="flex flex-1 flex-col items-center">
                   <div
+                    aria-current={isCurrent ? "step" : undefined}
                     className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors ${
                       isCurrent
                         ? "border-primary bg-primary text-primary-foreground"
                         : isActive
-                          ? "border-green-500 bg-green-500/10 text-green-500"
+                          ? "border-good bg-good-wash text-good-ink"
                           : "border-border bg-muted text-muted-foreground"
                     }`}
                   >
@@ -135,9 +137,9 @@ export default function PortalJobDetailPage() {
                   <span
                     className={`mt-1.5 text-[10px] font-medium ${
                       isCurrent
-                        ? "text-primary"
+                        ? "text-foreground"
                         : isActive
-                          ? "text-green-500"
+                          ? "text-good-ink"
                           : "text-muted-foreground"
                     }`}
                   >
@@ -145,7 +147,7 @@ export default function PortalJobDetailPage() {
                   </span>
                   {idx < STATUS_STEPS.length - 1 && (
                     <div
-                      className={`absolute mt-4 h-0.5 w-full ${isActive ? "bg-green-500" : "bg-border"}`}
+                      className={`absolute mt-4 h-0.5 w-full ${isActive ? "bg-good" : "bg-border"}`}
                       style={{ display: "none" }}
                     />
                   )}
@@ -158,8 +160,8 @@ export default function PortalJobDetailPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Issue Description
+          <h3 className="text-sm font-semibold text-foreground">
+            Issue description
           </h3>
           <p className="mt-2 text-foreground">{job.issueDescription}</p>
           {job.watchSerial && (
@@ -170,12 +172,12 @@ export default function PortalJobDetailPage() {
         </Card>
 
         <Card>
-          <h3 className="text-sm font-medium text-muted-foreground">Cost</h3>
+          <h3 className="text-sm font-semibold text-foreground">Cost</h3>
           <div className="mt-3 space-y-2">
             {job.estimatedCost && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Estimated</span>
-                <span className="font-mono text-foreground">
+                <span className="tabular-nums text-foreground">
                   {formatCurrency(job.estimatedCost)}
                 </span>
               </div>
@@ -183,7 +185,7 @@ export default function PortalJobDetailPage() {
             {job.finalCost && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Final</span>
-                <span className="font-mono font-semibold text-foreground">
+                <span className="font-semibold tabular-nums text-foreground">
                   {formatCurrency(job.finalCost)}
                 </span>
               </div>
@@ -193,29 +195,27 @@ export default function PortalJobDetailPage() {
                 Cost will be provided after diagnosis
               </p>
             )}
-            <div className="flex justify-between border-t border-border pt-2">
+            <div className="flex items-center justify-between border-t border-border pt-2">
               <span className="text-sm text-muted-foreground">Payment</span>
-              <span
-                className={`text-sm font-medium ${job.isPaid ? "text-green-500" : "text-yellow-500"}`}
-              >
+              <Badge tone={job.isPaid ? "good" : "warning"}>
                 {job.isPaid ? "Paid" : "Pending"}
-              </span>
+              </Badge>
             </div>
 
             {job.paymentInformation && !job.isPaid && (
-              <div className="mt-3 rounded-md bg-primary/5 p-3 border border-primary/10">
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">Payment Details</p>
+              <div className="mt-3 rounded-md bg-secondary p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Payment details</p>
                 {job.paymentInformation.startsWith("http") ? (
                   <a
                     href={job.paymentInformation}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                    className={buttonClasses({ className: "w-full" })}
                   >
-                    Pay Now
+                    Pay now
                   </a>
                 ) : (
-                  <div className="rounded bg-muted p-2">
+                  <div className="rounded bg-card p-2">
                     <p className="font-mono text-xs text-foreground break-all select-all">
                       {job.paymentInformation}
                     </p>
@@ -233,7 +233,7 @@ export default function PortalJobDetailPage() {
       {job.shippingAddress && !["Pending", "Refused"].includes(job.status) && (
         <Card>
           <div className="flex items-start gap-3">
-            <Truck className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+            <Truck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
             <div>
               <p className="font-medium text-foreground">
                 Please ship your watch to:
@@ -248,8 +248,8 @@ export default function PortalJobDetailPage() {
 
       {job.trackingNumber && (
         <Card>
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Tracking Information
+          <h3 className="text-sm font-semibold text-foreground">
+            Tracking information
           </h3>
           <div className="mt-2">
             <p className="text-foreground">
@@ -266,8 +266,8 @@ export default function PortalJobDetailPage() {
 
       {job.technicianNotes && (
         <Card>
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Technician Notes
+          <h3 className="text-sm font-semibold text-foreground">
+            Technician notes
           </h3>
           <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
             {job.technicianNotes}
@@ -277,7 +277,7 @@ export default function PortalJobDetailPage() {
 
       {job.warrantyPeriod && (
         <Card>
-          <h3 className="text-sm font-medium text-muted-foreground">
+          <h3 className="text-sm font-semibold text-foreground">
             Warranty
           </h3>
           <p className="mt-2 text-foreground">{job.warrantyPeriod}</p>
@@ -285,7 +285,7 @@ export default function PortalJobDetailPage() {
       )}
 
       <Card>
-        <h3 className="text-sm font-medium text-muted-foreground">Timeline</h3>
+        <h3 className="text-sm font-semibold text-foreground">Timeline</h3>
         <div className="mt-3 space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Submitted</span>
@@ -317,6 +317,6 @@ export default function PortalJobDetailPage() {
           )}
         </div>
       </Card>
-    </motion.div>
+    </div>
   );
 }

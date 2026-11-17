@@ -1,40 +1,65 @@
 import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
 
+type Variant = "primary" | "secondary" | "ghost" | "destructive";
+type Size = "sm" | "md" | "lg";
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "ghost" | "destructive";
-  size?: "sm" | "md" | "lg";
+  variant?: Variant;
+  size?: Size;
+  /** Disable the press-scale feedback (e.g. inside dense toolbars). */
+  static?: boolean;
+}
+
+const variants: Record<Variant, string> = {
+  primary: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/88",
+  secondary:
+    "bg-card text-foreground shadow-card hover:bg-accent",
+  ghost: "text-foreground hover:bg-accent",
+  destructive:
+    "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+};
+
+const sizes: Record<Size, string> = {
+  sm: "h-8 gap-1.5 px-3 text-xs",
+  md: "h-9 gap-2 px-4 text-sm",
+  lg: "h-10 gap-2 px-5 text-sm",
+};
+
+export function buttonClasses({
+  variant = "primary",
+  size = "md",
+  isStatic = false,
+  className,
+}: {
+  variant?: Variant;
+  size?: Size;
+  isStatic?: boolean;
+  className?: string;
+} = {}) {
+  return cn(
+    "inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-md font-medium",
+    "transition-[background-color,color,box-shadow,scale] duration-150 ease-out",
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "[&_svg]:size-4 [&_svg]:shrink-0",
+    !isStatic && "active:scale-[0.96]",
+    variants[variant],
+    sizes[size],
+    className
+  );
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
-    return (
-      <button
-        ref={ref}
-        className={cn(
-          "inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          {
-            primary:
-              "bg-primary text-primary-foreground hover:bg-primary/90",
-            secondary:
-              "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-            ghost:
-              "hover:bg-accent hover:text-accent-foreground",
-            destructive:
-              "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-          }[variant],
-          {
-            sm: "h-8 px-3 text-xs",
-            md: "h-9 px-4 text-sm",
-            lg: "h-10 px-6 text-sm",
-          }[size],
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  }
+  (
+    { className, variant = "primary", size = "md", static: isStatic, ...props },
+    ref
+  ) => (
+    <button
+      ref={ref}
+      className={buttonClasses({ variant, size, isStatic, className })}
+      {...props}
+    />
+  )
 );
 Button.displayName = "Button";

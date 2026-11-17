@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Upload, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatPercentage, formatDate } from "@/lib/utils";
 
@@ -70,8 +72,12 @@ export default function WatchDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div role="status" aria-label="Loading" className="space-y-6">
+        <Skeleton className="h-10 w-72" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+        </div>
       </div>
     );
   }
@@ -83,52 +89,51 @@ export default function WatchDetailPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/inventory")}
-          className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">
-            {watch.brand} {watch.model}
-          </h1>
-          <div className="mt-1 flex items-center gap-3">
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow={
+          <Link
+            href="/inventory"
+            className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" />
+            Inventory
+          </Link>
+        }
+        title={`${watch.brand} ${watch.model}`}
+        description={
+          <span className="flex flex-wrap items-center gap-3">
             <StatusBadge status={watch.status} />
-            <span className="text-sm text-muted-foreground">
+            <span>
               Acquired {formatDate(watch.acquisitionDate)} from {watch.source}
             </span>
-          </div>
-        </div>
-        <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
-        </Button>
-      </div>
+          </span>
+        }
+        actions={
+          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            <Trash2 />
+            Delete watch
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Unit Economics
+              Unit economics
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Base Cost</span>
-              <span className="font-mono text-sm">
+              <span className="text-sm text-muted-foreground">Base cost</span>
+              <span className="tabular-nums text-sm">
                 {formatCurrency(watch.economics.baseCost)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Parts Cost</span>
-              <span className="font-mono text-sm">
+              <span className="text-sm text-muted-foreground">Parts cost</span>
+              <span className="tabular-nums text-sm">
                 {formatCurrency(watch.economics.totalPartsCost)}
               </span>
             </div>
@@ -136,7 +141,7 @@ export default function WatchDetailPage() {
               <span className="text-sm font-medium text-foreground">
                 Total COGS
               </span>
-              <span className="font-mono text-sm font-medium">
+              <span className="tabular-nums text-sm font-medium">
                 {formatCurrency(watch.economics.totalCogs)}
               </span>
             </div>
@@ -144,23 +149,23 @@ export default function WatchDetailPage() {
               <>
                 <div className="flex justify-between border-t border-border pt-2">
                   <span className="text-sm text-muted-foreground">
-                    Net Revenue
+                    Net revenue
                   </span>
-                  <span className="font-mono text-sm">
+                  <span className="tabular-nums text-sm">
                     {formatCurrency(watch.economics.netRevenue)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium text-primary">
-                    Net Profit
+                  <span className="text-sm font-medium text-foreground">
+                    Net profit
                   </span>
-                  <span className="font-mono text-sm font-medium text-primary">
+                  <span className="tabular-nums text-sm font-medium text-foreground">
                     {formatCurrency(watch.economics.unitNetProfit)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">ROI</span>
-                  <span className="font-mono text-sm">
+                  <span className="tabular-nums text-sm">
                     {formatPercentage(watch.economics.unitRoi)}
                   </span>
                 </div>
@@ -168,9 +173,9 @@ export default function WatchDetailPage() {
             )}
             <div className="flex justify-between border-t border-border pt-2">
               <span className="text-sm text-muted-foreground">
-                Days in Inventory
+                Days in inventory
               </span>
-              <span className="text-sm">{watch.economics.daysInInventory}</span>
+              <span className="tabular-nums text-sm">{watch.economics.daysInInventory}</span>
             </div>
           </CardContent>
         </Card>
@@ -178,7 +183,7 @@ export default function WatchDetailPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Parts & Modifications ({watch.parts.length})
+              Parts and modifications ({watch.parts.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -191,7 +196,7 @@ export default function WatchDetailPage() {
                 {watch.parts.map((part) => (
                   <div
                     key={part.id}
-                    className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2"
+                    className="flex items-center justify-between rounded-lg bg-secondary px-3 py-2"
                   >
                     <div>
                       <p className="text-sm font-medium text-foreground">
@@ -203,7 +208,7 @@ export default function WatchDetailPage() {
                         {formatDate(part.date)}
                       </p>
                     </div>
-                    <span className="font-mono text-sm text-foreground">
+                    <span className="tabular-nums text-sm text-foreground">
                       {formatCurrency(part.cost)}
                     </span>
                   </div>
@@ -218,7 +223,7 @@ export default function WatchDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Sale Details
+              Sale details
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -230,21 +235,21 @@ export default function WatchDetailPage() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Gross Price</p>
-                <p className="mt-1 font-mono text-sm font-medium text-foreground">
+                <p className="text-xs text-muted-foreground">Gross price</p>
+                <p className="mt-1 tabular-nums text-sm font-medium text-foreground">
                   {formatCurrency(watch.sale.grossSalePrice)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Fees & Shipping</p>
-                <p className="mt-1 font-mono text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">Fees and shipping</p>
+                <p className="mt-1 tabular-nums text-sm text-muted-foreground">
                   {formatCurrency(
                     watch.sale.platformFee + watch.sale.shippingInsurance
                   )}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Sale Date</p>
+                <p className="text-xs text-muted-foreground">Sale date</p>
                 <p className="mt-1 text-sm text-foreground">
                   {formatDate(watch.sale.saleDate)}
                 </p>
@@ -269,9 +274,9 @@ export default function WatchDetailPage() {
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete Watch"
+        title="Delete watch"
         message={`Are you sure you want to delete "${watch.brand} ${watch.model}"? All associated parts, sales, and images will be permanently removed.`}
       />
-    </motion.div>
+    </div>
   );
 }

@@ -1,115 +1,71 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import {
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
+import { axisProps, chrome, formatAxisEuro, gridProps, series } from "@/lib/chart-theme";
 import type { PlatformPerformance } from "@/lib/queries/dashboard";
+import { ChartEmpty, ChartLegend, ChartTooltip } from "./chart-tooltip";
 
+const SERIES = [
+  { key: "revenue", label: "Revenue", color: series[0] },
+  { key: "profit", label: "Profit", color: series[2] },
+  { key: "fees", label: "Fees", color: series[1] },
+] as const;
+
+/*
+ * One money axis only. Margin % used to sit on a second y-axis, which invents a
+ * relationship between two unrelated scales; it now lives in the tooltip and the badge.
+ * (Phase 3 replaces this with ranked profit bars + a margin dot plot.)
+ */
 export function PlatformChart({ data }: { data: PlatformPerformance }) {
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Platform Performance
-          </CardTitle>
-          {data.bestPlatformByMargin && (
-            <span className="rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-500">
-              Best margin: {data.bestPlatformByMargin.platform} ({formatPercentage(data.bestPlatformByMargin.margin)})
-            </span>
-          )}
+      <CardHeader className="sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <CardTitle>Platform performance</CardTitle>
+          <CardDescription>Revenue, profit and fees per sales platform.</CardDescription>
         </div>
+        {data.bestPlatformByMargin && (
+          <Badge tone="good">
+            Best margin: {data.bestPlatformByMargin.platform} ({formatPercentage(data.bestPlatformByMargin.margin)})
+          </Badge>
+        )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
         {data.revenueByPlatform.length === 0 ? (
-          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-            No sales data yet
-          </div>
+          <ChartEmpty height={280}>Record a sale to compare platforms.</ChartEmpty>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={data.revenueByPlatform}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.01 260)" />
-              <XAxis
-                dataKey="platform"
-                stroke="oklch(0.6 0.01 260)"
-                fontSize={12}
-              />
-              <YAxis 
-                yAxisId="left"
-                stroke="oklch(0.6 0.01 260)" 
-                fontSize={12} 
-                tickFormatter={(value) => `$${value}`}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="oklch(0.65 0.12 160)"
-                fontSize={12}
-                tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                domain={[0, 'auto']}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "oklch(0.14 0.01 260)",
-                  border: "1px solid oklch(0.25 0.01 260)",
-                  borderRadius: "8px",
-                  color: "oklch(0.95 0.01 260)",
-                }}
-                formatter={(value: any, name: any, props: any) => {
-                  if (props.dataKey === "margin") return [formatPercentage(Number(value)), "Margin"];
-                  if (props.dataKey === "fees") {
-                    const rev = props.payload.revenue;
-                    const feePct = rev > 0 ? (Number(value) / rev) : 0;
-                    return [`${formatCurrency(Number(value))} (${formatPercentage(feePct)} of rev)`, "Fees"];
-                  }
-                  return [formatCurrency(Number(value)), String(name)];
-                }}
-              />
-              <Legend
-                wrapperStyle={{ color: "oklch(0.6 0.01 260)", fontSize: 12, paddingTop: 20 }}
-              />
-              <Bar
-                yAxisId="left"
-                dataKey="revenue"
-                name="Revenue"
-                fill="oklch(0.75 0.15 85)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                yAxisId="left"
-                dataKey="profit"
-                name="Profit"
-                fill="oklch(0.65 0.12 160)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                yAxisId="left"
-                dataKey="fees"
-                name="Fees"
-                fill="oklch(0.6 0.1 25)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="margin"
-                name="Margin %"
-                stroke="oklch(0.65 0.12 160)"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <>
+            <ChartLegend items={SERIES.map((s) => ({ label: s.label, color: s.color }))} />
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={data.revenueByPlatform} barGap={2} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="platform" {...axisProps} interval={0} />
+                <YAxis {...axisProps} axisLine={false} tickFormatter={formatAxisEuro} width={64} />
+                <Tooltip
+                  cursor={{ fill: chrome.grid, fillOpacity: 0.4 }}
+                  content={(props) => (
+                    <ChartTooltip
+                      {...(props as object)}
+                      formatValue={(v, row) => {
+                        if (row.dataKey === "fees") {
+                          const rev = Number(row.payload?.revenue ?? 0);
+                          return `${formatCurrency(v)} (${formatPercentage(rev > 0 ? v / rev : 0)})`;
+                        }
+                        return formatCurrency(v);
+                      }}
+                      footer={(d) => <>Margin {formatPercentage(Number(d.margin))}</>}
+                    />
+                  )}
+                />
+                {SERIES.map((s) => (
+                  <Bar isAnimationActive={false} key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </>
         )}
       </CardContent>
     </Card>

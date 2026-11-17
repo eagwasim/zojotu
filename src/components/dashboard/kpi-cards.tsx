@@ -1,16 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Card } from "@/components/ui/card";
+import { StatTile } from "@/components/ui/stat-tile";
 import { formatCurrency, formatPercentage } from "@/lib/utils";
-import {
-  DollarSign,
-  TrendingUp,
-  Package,
-  Clock,
-  ShoppingCart,
-  Wallet,
-} from "lucide-react";
 
 interface KPIData {
   grossRevenue: number;
@@ -25,89 +16,55 @@ interface KPIData {
   totalWatches: number;
 }
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
-
 export function KPICards({ data }: { data: KPIData }) {
   const kpis = [
     {
-      label: "Gross Revenue",
+      label: "Revenue",
       value: formatCurrency(data.grossRevenue),
-      icon: DollarSign,
+      definition: "Total sale price of watches sold in the period, before fees.",
     },
     {
-      label: "Net Profit",
+      label: "Net profit",
       value: formatCurrency(data.netProfit),
-      icon: TrendingUp,
+      definition:
+        "Sale price minus platform fees, shipping, purchase cost and parts, minus operating expenses.",
     },
     {
       label: "Margin",
       value: formatPercentage(data.marginPercent),
-      icon: TrendingUp,
+      definition: "Profit (after fees, shipping, purchase cost and parts) as a share of revenue.",
     },
     {
-      label: "ROI",
+      label: "Return on cost",
       value: formatPercentage(data.roiPercent),
-      icon: TrendingUp,
+      definition: "Profit (after fees and shipping) divided by what the sold watches cost you: purchase plus parts.",
     },
     {
-      label: "Watches Sold",
-      value: data.watchesSold.toString(),
-      icon: ShoppingCart,
+      label: "Watches sold",
+      value: data.watchesSold.toLocaleString("en-IE"),
     },
     {
-      label: "Avg Days to Sell",
+      label: "Avg days to sell",
       value: `${Math.round(data.avgDaysToSell)} days`,
-      icon: Clock,
+      definition: "Average days from acquisition date to sale date.",
     },
     {
-      label: "Inventory Value",
+      label: "Stock at cost",
       value: formatCurrency(data.activeInventoryValue),
-      icon: Package,
+      definition: "Purchase cost plus parts for every watch not yet sold. This is cash tied up in stock.",
     },
     {
-      label: "Operating Expenses",
+      label: "Operating expenses",
       value: formatCurrency(data.totalOpEx),
-      icon: Wallet,
+      definition: "Business costs not tied to a single watch: tools, supplies, software, shipping, marketing.",
     },
   ];
 
   return (
-    <motion.div
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-    >
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {kpis.map((kpi) => (
-        <motion.div key={kpi.label} variants={item}>
-          <Card className="relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {kpi.label}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-foreground">
-                  {kpi.value}
-                </p>
-              </div>
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <kpi.icon className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </Card>
-        </motion.div>
+        <StatTile key={kpi.label} {...kpi} />
       ))}
-    </motion.div>
+    </div>
   );
 }

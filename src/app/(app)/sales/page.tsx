@@ -1,9 +1,13 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/filter-bar";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -121,124 +125,117 @@ function SalesContent() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Sales</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} sale{total !== 1 ? "s" : ""} recorded
-          </p>
-        </div>
-        <Button onClick={() => { setEditingSale(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Record Sale
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Sales"
+        description={`${total} sale${total !== 1 ? "s" : ""} recorded`}
+        actions={
+          <Button onClick={() => { setEditingSale(null); setFormOpen(true); }}>
+            <Plus />
+            Record sale
+          </Button>
+        }
+      />
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by watch brand or model..."
-            className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <SearchInput
+          value={searchInput}
+          onChange={handleSearchChange}
+          placeholder="Search by watch brand or model…"
+          className="sm:max-w-sm"
+        />
+        <div className="w-full sm:w-56">
+          <Select
+            label="Platform"
+            value={filters.platform || ""}
+            onChange={(e) => setFilter("platform", e.target.value)}
+            placeholder="All platforms"
+            options={PLATFORMS.map((p) => ({ value: p, label: p }))}
           />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-md">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Platform</label>
-            <select
-              value={filters.platform || ""}
-              onChange={(e) => setFilter("platform", e.target.value)}
-              className="block w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All</option>
-              {PLATFORMS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <TableSkeleton cols={7} />
       ) : salesList.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">No sales recorded yet</p>
-        </div>
+        <EmptyState
+          title={search || filters.platform ? "No sales match your filters" : "No sales recorded yet"}
+          description={
+            search || filters.platform
+              ? "Try a different search term or platform."
+              : "Record a sale when a watch sells to track revenue and fees."
+          }
+          action={
+            !(search || filters.platform) && (
+              <Button onClick={() => { setEditingSale(null); setFormOpen(true); }}>
+                <Plus />
+                Record sale
+              </Button>
+            )
+          }
+        />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Watch</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Platform</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Gross Price</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Fees</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Net Revenue</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Watch</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Platform</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Gross price</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Fees</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">Net revenue</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-left">Date</th>
+                  <th className="border-b border-border px-4 py-3 text-xs font-medium text-muted-foreground text-right">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence>
-                  {salesList.map((sale) => (
-                    <motion.tr
-                      key={sale.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-border transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        {getWatchLabel(sale)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{sale.platform}</td>
-                      <td className="px-4 py-3 font-mono text-foreground">
-                        {formatCurrency(sale.grossSalePrice)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground">
-                        {formatCurrency(sale.platformFee + sale.shippingInsurance)}
-                      </td>
-                      <td className="px-4 py-3 font-mono font-medium text-primary">
-                        {formatCurrency(
-                          sale.grossSalePrice -
-                            sale.platformFee -
-                            sale.shippingInsurance
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(sale.saleDate)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingSale(sale); setFormOpen(true); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(sale)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                {salesList.map((sale) => (
+                  <tr
+                    key={sale.id}
+                    className="border-t border-border transition-colors hover:bg-accent/50"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {getWatchLabel(sale)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{sale.platform}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                      {formatCurrency(sale.grossSalePrice)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                      {formatCurrency(sale.platformFee + sale.shippingInsurance)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium tabular-nums text-foreground">
+                      {formatCurrency(
+                        sale.grossSalePrice -
+                          sale.platformFee -
+                          sale.shippingInsurance
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(sale.saleDate)}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <IconButton
+                          aria-label={`Edit sale of ${getWatchLabel(sale)}`}
+                          onClick={() => { setEditingSale(sale); setFormOpen(true); }}
+                        >
+                          <Pencil />
+                        </IconButton>
+                        <IconButton
+                          aria-label={`Delete sale of ${getWatchLabel(sale)}`}
+                          tone="destructive"
+                          onClick={() => setDeleteTarget(sale)}
+                        >
+                          <Trash2 />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -256,7 +253,7 @@ function SalesContent() {
       <Dialog
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingSale(null); }}
-        title={editingSale ? "Edit Sale" : "Record Sale"}
+        title={editingSale ? "Edit sale" : "Record sale"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Combobox
@@ -269,7 +266,7 @@ function SalesContent() {
           />
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Sale Date"
+              label="Sale date"
               name="saleDate"
               type="date"
               defaultValue={editingSale?.saleDate}
@@ -283,7 +280,7 @@ function SalesContent() {
             />
           </div>
           <Input
-            label="Gross Sale Price"
+            label="Gross sale price"
             name="grossSalePrice"
             type="number"
             step="0.01"
@@ -292,14 +289,14 @@ function SalesContent() {
           />
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Platform Fee"
+              label="Platform fee"
               name="platformFee"
               type="number"
               step="0.01"
               defaultValue={editingSale?.platformFee?.toString() || "0"}
             />
             <Input
-              label="Shipping & Insurance"
+              label="Shipping & insurance"
               name="shippingInsurance"
               type="number"
               step="0.01"
@@ -316,7 +313,7 @@ function SalesContent() {
             <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingSale(null); }}>
               Cancel
             </Button>
-            <Button type="submit">{editingSale ? "Save" : "Record Sale"}</Button>
+            <Button type="submit">{editingSale ? "Save changes" : "Record sale"}</Button>
           </div>
         </form>
       </Dialog>
@@ -325,17 +322,17 @@ function SalesContent() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Sale"
+        title="Delete sale"
         message={`Are you sure you want to delete this sale? The watch status will be reverted to "Listed". This action cannot be undone.`}
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }
 
 export default function SalesPage() {
   return (
-    <Suspense fallback={<div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense fallback={<TableSkeleton cols={7} />}>
       <SalesContent />
     </Suspense>
   );

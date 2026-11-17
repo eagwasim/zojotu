@@ -1,85 +1,52 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { foldOther, series } from "@/lib/chart-theme";
+import { ChartEmpty } from "./chart-tooltip";
 
 interface BrandCount {
   brand: string;
   count: number;
 }
 
-const COLORS = [
-  "#34d399",
-  "#60a5fa",
-  "#fbbf24",
-  "#f87171",
-  "#a78bfa",
-  "#fb923c",
-  "#2dd4bf",
-  "#e879f9",
-  "#84cc16",
-  "#f472b6",
-];
-
+/** Ranked bars, one colour: comparing brands is about length, not hue. */
 export function BrandDistributionChart({ data }: { data: BrandCount[] }) {
+  const sorted = [...data].sort((a, b) => b.count - a.count);
+  const rows = foldOther(
+    sorted,
+    (d) => d.count,
+    (total, n) => ({ brand: `Other (${n} brands)`, count: total })
+  );
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  const total = sorted.reduce((s, r) => s + r.count, 0);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Inventory by Brand
-        </CardTitle>
+        <CardTitle>Stock by brand</CardTitle>
+        <CardDescription>Unsold watches, by count.</CardDescription>
       </CardHeader>
       <CardContent>
-        {data.length === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
-            No inventory data
-          </div>
+        {rows.length === 0 ? (
+          <ChartEmpty height={160}>Add a watch to see your brand mix.</ChartEmpty>
         ) : (
-          <div className="flex items-center gap-6">
-            <ResponsiveContainer width="60%" height={200}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  dataKey="count"
-                  nameKey="brand"
-                  strokeWidth={2}
-                  stroke="oklch(0.14 0.01 260)"
-                >
-                  {data.map((entry, idx) => (
-                    <Cell
-                      key={entry.brand}
-                      fill={COLORS[idx % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "oklch(0.14 0.01 260)",
-                    border: "1px solid oklch(0.25 0.01 260)",
-                    borderRadius: "8px",
-                    color: "oklch(0.95 0.01 260)",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-2 overflow-y-auto max-h-[200px]">
-              {data.map((entry, idx) => (
-                <div key={entry.brand} className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+          <ul className="flex flex-col gap-2.5">
+            {rows.map((r) => (
+              <li key={r.brand} className="grid grid-cols-[7rem_1fr_2.5rem] items-center gap-3 text-sm">
+                <span className="truncate text-foreground" title={r.brand}>
+                  {r.brand}
+                </span>
+                <span className="h-2 rounded-r-[4px] bg-transparent" aria-hidden>
+                  <span
+                    className="block h-full rounded-r-[4px]"
+                    style={{ width: `${(r.count / max) * 100}%`, background: series[0] }}
+                    title={`${r.brand}: ${r.count} (${Math.round((r.count / total) * 100)}%)`}
                   />
-                  <span className="text-sm text-muted-foreground">
-                    {entry.brand} ({entry.count})
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+                </span>
+                <span className="text-right tabular-nums text-muted-foreground">{r.count}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
     </Card>

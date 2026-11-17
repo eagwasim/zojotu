@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -62,22 +62,16 @@ export default function NewServiceRequestPage() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="mx-auto max-w-2xl space-y-6"
-    >
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Request Service</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Submit a service request for your watch
-        </p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="Request service"
+        description="Submit a service request for your watch"
+      />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Service Type
+          <h2 className="text-sm font-semibold text-foreground">
+            Service type
           </h2>
           <div className="mt-3">
             <Select
@@ -103,8 +97,8 @@ export default function NewServiceRequestPage() {
         </Card>
 
         <Card>
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Watch Details
+          <h2 className="text-sm font-semibold text-foreground">
+            Watch details
           </h2>
           <div className="mt-3 space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -122,7 +116,7 @@ export default function NewServiceRequestPage() {
               />
             </div>
             <Input
-              label="Serial Number (optional)"
+              label="Serial number (optional)"
               name="watchSerial"
               placeholder="If available"
             />
@@ -130,19 +124,16 @@ export default function NewServiceRequestPage() {
         </Card>
 
         <Card>
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Issue Description
+          <h2 className="text-sm font-semibold text-foreground">
+            Issue description
           </h2>
           <div className="mt-3">
-            <label className="block text-sm font-medium text-foreground">
-              Describe the issue or service needed
-            </label>
-            <textarea
+            <Textarea
+              label="Describe the issue or service needed"
               name="issueDescription"
               rows={4}
               required
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Please describe what's wrong with your watch or what service you'd like performed..."
+              placeholder="Please describe what's wrong with your watch or what service you'd like performed…"
             />
           </div>
         </Card>
@@ -156,10 +147,10 @@ export default function NewServiceRequestPage() {
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? "Submitting..." : "Submit Request"}
+            {loading ? "Submitting…" : "Submit request"}
           </Button>
         </div>
       </form>
-    </motion.div>
+    </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { motion } from "framer-motion";
 import { Calendar } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { controlClasses } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 import { KPICards } from "@/components/dashboard/kpi-cards";
 import { ProfitChart } from "@/components/dashboard/profit-chart";
 import { InventoryStatusChart } from "@/components/dashboard/inventory-status-chart";
@@ -111,53 +113,50 @@ export default function DashboardPage() {
   if (!data) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your watch business at a glance
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <select
-              value={activePreset}
-              onChange={(e) => handlePresetChange(e.target.value as PresetKey)}
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {PRESETS.map((preset) => (
-                <option key={preset.key} value={preset.key}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {activePreset === "custom" && (
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Your watch business at a glance"
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">From</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => handleCustomDate(e.target.value, toDate)}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground [color-scheme:dark] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <label className="text-sm text-muted-foreground">To</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => handleCustomDate(fromDate, e.target.value)}
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground [color-scheme:dark] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+              <Calendar aria-hidden className="size-4 text-muted-foreground" />
+              <select
+                aria-label="Date range"
+                value={activePreset}
+                onChange={(e) => handlePresetChange(e.target.value as PresetKey)}
+                className={cn(controlClasses, "h-9 w-auto")}
+              >
+                {PRESETS.map((preset) => (
+                  <option key={preset.key} value={preset.key}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
-        </div>
-      </div>
+            {activePreset === "custom" && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="dashboard-from" className="text-sm text-muted-foreground">From</label>
+                <input
+                  id="dashboard-from"
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => handleCustomDate(e.target.value, toDate)}
+                  className={cn(controlClasses, "h-9 w-auto")}
+                />
+                <label htmlFor="dashboard-to" className="text-sm text-muted-foreground">To</label>
+                <input
+                  id="dashboard-to"
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => handleCustomDate(fromDate, e.target.value)}
+                  className={cn(controlClasses, "h-9 w-auto")}
+                />
+              </div>
+            )}
+          </div>
+        }
+      />
 
       {loading ? (
         <div className="flex h-32 items-center justify-center">
@@ -166,23 +165,23 @@ export default function DashboardPage() {
       ) : (
         <>
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Combined Totals</h2>
+        <h2 className="text-lg font-semibold text-foreground">Combined totals</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-medium text-muted-foreground">Combined Revenue</p>
-            <p className="mt-1 text-2xl font-bold text-foreground">{formatCurrency(data.combinedRevenue)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Watch sales + Service income</p>
+          <div className="rounded-xl bg-card p-4 shadow-card">
+            <p className="text-xs font-medium text-muted-foreground">Combined revenue</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{formatCurrency(data.combinedRevenue)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Watch sales + service income</p>
           </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-medium text-muted-foreground">Combined Profit</p>
-            <p className="mt-1 text-2xl font-bold text-foreground">{formatCurrency(data.combinedProfit)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Net profit + Service profit</p>
+          <div className="rounded-xl bg-card p-4 shadow-card">
+            <p className="text-xs font-medium text-muted-foreground">Combined profit</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{formatCurrency(data.combinedProfit)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Net profit + service profit</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Sales Revenue</h2>
+        <h2 className="text-lg font-semibold text-foreground">Sales revenue</h2>
         <KPICards data={data} />
 
         <div className="grid grid-cols-1 gap-6">
@@ -191,12 +190,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Service Revenue</h2>
+        <h2 className="text-lg font-semibold text-foreground">Service revenue</h2>
         <ServiceKPICards data={data.serviceKPIs} />
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Sales Velocity</h2>
+        <h2 className="text-lg font-semibold text-foreground">Sales velocity</h2>
         <SalesVelocityCards data={data.salesVelocity} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <TimeToSellChart data={data.salesVelocity.timeToSellDistribution} />
@@ -205,7 +204,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Brand & Platform Analysis</h2>
+        <h2 className="text-lg font-semibold text-foreground">Brand & platform analysis</h2>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <BrandProfitChart data={data.brandAnalytics.mostProfitableBrands} />
           <PlatformChart data={data.platformPerformance} />
@@ -218,6 +217,6 @@ export default function DashboardPage() {
       </div>
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

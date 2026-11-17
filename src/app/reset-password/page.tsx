@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Watch, Loader2, CheckCircle2 } from "lucide-react";
 
 function ResetPasswordForm() {
@@ -51,12 +52,12 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="text-center">
-        <p className="text-sm text-destructive">
+        <p className="text-sm text-critical-ink">
           Invalid reset link. Please request a new one.
         </p>
         <a
           href="/forgot-password"
-          className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+          className="mt-2 inline-block text-sm font-medium text-link hover:underline"
         >
           Request new link
         </a>
@@ -67,16 +68,11 @@ function ResetPasswordForm() {
   return (
     <>
       <div className="text-center">
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: "spring" }}
-          className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"
-        >
-          <Watch className="h-6 w-6 text-primary" />
-        </motion.div>
-        <h1 className="mt-4 text-xl font-bold text-foreground">
-          New Password
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+            <Watch className="h-6 w-6 text-foreground" />
+          </div>
+        <h1 className="mt-4 font-display text-2xl font-medium tracking-tight text-foreground">
+          New password
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Enter your new password
@@ -85,78 +81,54 @@ function ResetPasswordForm() {
 
       {success ? (
         <div className="flex flex-col items-center gap-3 py-4">
-          <CheckCircle2 className="h-10 w-10 text-green-500" />
+          <CheckCircle2 aria-hidden className="h-10 w-10 text-good-ink" />
           <p className="text-center text-sm text-muted-foreground">
             Password reset successfully!
           </p>
           <a
             href="/login"
-            className="mt-2 text-sm font-medium text-primary hover:underline"
+            className="mt-2 text-sm font-medium text-link hover:underline"
           >
             Sign in with your new password
           </a>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-foreground"
-            >
-              New Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
-          </div>
+          <Input
+            id="password"
+            label="New password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            minLength={6}
+          />
 
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-foreground"
-            >
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
-          </div>
+          <Input
+            id="confirmPassword"
+            label="Confirm password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            minLength={6}
+          />
 
           {error && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-sm text-destructive"
-            >
+            <p role="alert" className="text-sm text-critical-ink">
               {error}
-            </motion.p>
+            </p>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "Reset Password"
+              "Reset password"
             )}
-          </button>
+          </Button>
         </form>
       )}
     </>
@@ -166,22 +138,17 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-sm space-y-8 rounded-xl border border-border bg-card p-8"
-      >
+      <div className="w-full max-w-sm space-y-8 rounded-xl bg-card p-8 shadow-raised">
         <Suspense
           fallback={
             <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           }
         >
           <ResetPasswordForm />
         </Suspense>
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { Watch, ArrowRight, CheckCircle2, Heart, MessageSquare } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { buttonClasses } from "@/components/ui/button";
 
 interface CatalogItem {
   id: number;
@@ -13,16 +13,6 @@ interface CatalogItem {
   estimatedPrice: number;
   category: string;
 }
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
 
 export default function LandingPage() {
   const [services, setServices] = useState<CatalogItem[]>([]);
@@ -40,21 +30,21 @@ export default function LandingPage() {
       <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2">
-            <Watch className="h-6 w-6 text-primary" />
+            <Watch className="h-6 w-6 text-foreground" />
             <span className="text-xl font-bold text-foreground">Zojotu</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="rounded-md px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              className={buttonClasses({ variant: "ghost" })}
             >
-              Sign In
+              Sign in
             </Link>
             <Link
               href="/register"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className={buttonClasses()}
             >
-              Get Started
+              Get started
             </Link>
           </div>
         </div>
@@ -62,27 +52,12 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="relative flex min-h-[80vh] items-center justify-center overflow-hidden px-6 pt-16">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 -translate-y-1/4 rounded-full bg-primary/5 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-[300px] w-[400px] translate-x-1/4 translate-y-1/4 rounded-full bg-primary/8 blur-3xl" />
-          <div className="absolute left-0 top-1/2 h-[200px] w-[300px] -translate-x-1/3 rounded-full bg-blue-500/5 blur-3xl" />
-        </div>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="relative z-10 mx-auto max-w-2xl text-center"
-        >
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-lg shadow-primary/5"
-          >
-            <Watch className="h-8 w-8 text-primary" />
-          </motion.div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Affordable Watch Servicing
+        <div className="relative z-10 mx-auto max-w-2xl text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
+            <Watch className="h-8 w-8 text-foreground" />
+          </div>
+          <h1 className="font-display text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
+            Affordable watch servicing
           </h1>
           <p className="mx-auto mt-6 max-w-lg text-lg text-muted-foreground">
             I'm a hobbyist watchmaker based in the Netherlands, helping people maintain watches that might be too expensive to service through official channels. No fancy workshop - just careful hands, cheap rates, and a genuine love for horology.
@@ -90,63 +65,54 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/register"
-              className="flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className={buttonClasses({ size: "lg" })}
             >
-              Request a Service
+              Request a service
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="#how-it-works"
-              className="flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              className={buttonClasses({ variant: "secondary", size: "lg" })}
             >
-              How It Works
+              How it works
             </a>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* Honest pitch */}
       <section className="border-t border-border py-20 px-6">
         <div className="mx-auto max-w-2xl">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="space-y-6"
-          >
-            <h2 className="text-2xl font-bold text-foreground">What to expect</h2>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">What to expect</h2>
             <div className="space-y-4 text-sm text-muted-foreground">
               <div className="flex gap-3">
-                <Heart className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <Heart className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <p>This is a <strong className="text-foreground">hobby project</strong>. I'm self-taught and still learning. I'll always be upfront about what I can and can't do.</p>
               </div>
               <div className="flex gap-3">
-                <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <p><strong className="text-foreground">Communication first.</strong> I'll diagnose your watch and give you an honest assessment before any work begins. No surprises.</p>
               </div>
               <div className="flex gap-3">
-                <Watch className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <Watch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <p><strong className="text-foreground">Cheap rates.</strong> I charge for parts and a small service fee - way less than official service centers. This isn't a business trying to maximize profit, it's a passion that helps people keep their watches running.</p>
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
+            <div className="rounded-lg bg-secondary p-4">
               <p className="text-sm text-muted-foreground">
                 <strong className="text-foreground">A note on risk:</strong> I don't carry insurance on pieces in my care. I handle every watch with extreme caution, but if this concerns you, a professional service center may be a better fit. I'm happy to recommend one.
               </p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* How It Works */}
       <section id="how-it-works" className="border-t border-border bg-muted/30 py-20 px-6">
         <div className="mx-auto max-w-2xl">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl font-bold text-foreground">How it works</h2>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">How it works</h2>
             <div className="mt-8 space-y-6">
               {[
                 { n: "1", title: "Submit a request", desc: "Create an account, tell me about your watch and what's wrong." },
@@ -156,7 +122,7 @@ export default function LandingPage() {
                 { n: "5", title: "Service & return", desc: "Once you approve, I'll do the work and ship it back to you." },
               ].map((step) => (
                 <div key={step.n} className="flex gap-4">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold tabular-nums text-primary-foreground">
                     {step.n}
                   </div>
                   <div>
@@ -166,7 +132,7 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -174,42 +140,31 @@ export default function LandingPage() {
       {services.length > 0 && (
         <section id="services" className="border-t border-border py-20 px-6">
           <div className="mx-auto max-w-2xl">
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-            >
-              <h2 className="text-2xl font-bold text-foreground">What I can help with</h2>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">What I can help with</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Prices are estimates - I'll always confirm the exact cost after diagnosis.
               </p>
-              <motion.div
-                variants={container}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="mt-6 space-y-3"
-              >
+              <div className="mt-6 space-y-3">
                 {services.map((service) => (
-                  <motion.div
+                  <div
                     key={service.id}
-                    variants={item}
-                    className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
+                    className="flex items-center justify-between rounded-lg bg-card px-4 py-3 shadow-card"
                   >
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 aria-hidden className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium text-foreground">{service.name}</span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm tabular-nums text-muted-foreground">
                       ~{formatCurrency(service.estimatedPrice)}
                     </span>
-                  </motion.div>
+                  </div>
                 ))}
-              </motion.div>
+              </div>
               <p className="mt-4 text-xs text-muted-foreground">
                 Have something else in mind? Just describe it when you submit a request.
               </p>
-            </motion.div>
+            </div>
           </div>
         </section>
       )}
@@ -217,31 +172,27 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="border-t border-border bg-muted/30 py-20 px-6">
         <div className="mx-auto max-w-xl text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl font-bold text-foreground">Got a watch that needs attention?</h2>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">Got a watch that needs attention?</h2>
             <p className="mt-3 text-muted-foreground">
               Create a free account and submit a request. No obligations - I'll tell you honestly if I can help.
             </p>
             <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/register"
-                className="flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                className={buttonClasses({ size: "lg" })}
               >
-                Create Account
+                Create account
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/login"
-                className="text-sm font-medium text-primary hover:underline"
+                className="text-sm font-medium text-link hover:underline"
               >
                 Already have an account? Sign in
               </Link>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -249,7 +200,7 @@ export default function LandingPage() {
       <footer className="border-t border-border py-10 px-6">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
-            <Watch className="h-5 w-5 text-primary" />
+            <Watch className="h-5 w-5 text-foreground" />
             <span className="font-semibold text-foreground">Zojotu</span>
           </div>
           <p className="text-xs text-muted-foreground">

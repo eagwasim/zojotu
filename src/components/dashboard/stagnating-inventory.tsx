@@ -1,7 +1,9 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ChevronRight } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface StagnatingWatch {
   id: number;
@@ -14,39 +16,35 @@ export function StagnatingInventory({ data }: { data: StagnatingWatch[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Stagnating Inventory (&gt;90 days)
-        </CardTitle>
+        <CardTitle>Slow-moving stock</CardTitle>
+        <CardDescription>Unsold for more than 90 days. Consider a price drop or relisting.</CardDescription>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
-            No stagnating watches
-          </div>
+          <p className="flex h-40 items-center justify-center rounded-lg border border-dashed border-input/80 text-sm text-muted-foreground">
+            Nothing has been sitting for more than 90 days.
+          </p>
         ) : (
-          <div className="space-y-3">
+          <ul className="-mx-2 flex flex-col">
             {data.map((watch) => (
-              <div
-                key={watch.id}
-                className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2"
-              >
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {watch.brand}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {watch.model}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-amber-500">
-                  {watch.daysInInventory}d
-                </span>
-              </div>
+              <li key={watch.id}>
+                <Link
+                  href={`/inventory/${watch.id}`}
+                  className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors duration-150 hover:bg-accent/60"
+                >
+                  <AlertTriangle className="size-4 shrink-0 text-warning-ink" aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{watch.brand}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{watch.model}</span>
+                  </span>
+                  <Badge tone="warning" className="tabular-nums">
+                    {watch.daysInInventory} days
+                  </Badge>
+                  <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </CardContent>
     </Card>

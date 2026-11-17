@@ -1,16 +1,10 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import { axisProps, chrome, formatAxisEuro, formatMonthLabel, gridProps, series } from "@/lib/chart-theme";
+import { ChartEmpty, ChartLegend, ChartTooltip } from "./chart-tooltip";
 
 interface MonthlyProfit {
   month: string;
@@ -19,77 +13,64 @@ interface MonthlyProfit {
   profit: number;
 }
 
+const REVENUE = series[0];
+const PROFIT = series[2];
+
 export function ProfitChart({ data }: { data: MonthlyProfit[] }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Revenue & Profit Over Time
-        </CardTitle>
+      <CardHeader className="sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <CardTitle>Revenue and profit by month</CardTitle>
+          <CardDescription>Watch sales only. Profit is sale price minus fees, shipping, purchase cost and parts.</CardDescription>
+        </div>
+        {data.length > 0 && (
+          <ChartLegend
+            items={[
+              { label: "Revenue", color: REVENUE },
+              { label: "Profit", color: PROFIT },
+            ]}
+          />
+        )}
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="flex h-[350px] items-center justify-center text-sm text-muted-foreground">
-            No sales data yet
-          </div>
+          <ChartEmpty height={320}>Record your first sale to see monthly revenue and profit.</ChartEmpty>
         ) : (
-          <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="oklch(0.75 0.15 85)"
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="oklch(0.75 0.15 85)"
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="oklch(0.65 0.12 160)"
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="oklch(0.65 0.12 160)"
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.01 260)" />
-              <XAxis
-                dataKey="month"
-                stroke="oklch(0.6 0.01 260)"
-                fontSize={12}
-              />
-              <YAxis stroke="oklch(0.6 0.01 260)" fontSize={12} />
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="month" {...axisProps} tickFormatter={formatMonthLabel} minTickGap={16} />
+              <YAxis {...axisProps} axisLine={false} tickFormatter={formatAxisEuro} width={64} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "oklch(0.14 0.01 260)",
-                  border: "1px solid oklch(0.25 0.01 260)",
-                  borderRadius: "8px",
-                  color: "oklch(0.95 0.01 260)",
-                }}
-                formatter={(value: any, name: any) => [formatCurrency(Number(value)), name.charAt(0).toUpperCase() + name.slice(1)]}
+                cursor={{ stroke: chrome.axis, strokeWidth: 1 }}
+                content={(props) => (
+                  <ChartTooltip
+                    {...(props as object)}
+                    formatLabel={formatMonthLabel}
+                    formatValue={(v) => formatCurrency(v)}
+                  />
+                )}
               />
-              <Area
+              <Area isAnimationActive={false}
                 type="monotone"
                 dataKey="revenue"
-                stroke="oklch(0.75 0.15 85)"
-                fill="url(#colorRevenue)"
+                name="Revenue"
+                stroke={REVENUE}
+                fill={REVENUE}
+                fillOpacity={0.08}
                 strokeWidth={2}
+                activeDot={{ r: 4, stroke: chrome.surface, strokeWidth: 2 }}
               />
-              <Area
+              <Area isAnimationActive={false}
                 type="monotone"
                 dataKey="profit"
-                stroke="oklch(0.65 0.12 160)"
-                fill="url(#colorProfit)"
+                name="Profit"
+                stroke={PROFIT}
+                fill={PROFIT}
+                fillOpacity={0.1}
                 strokeWidth={2}
+                activeDot={{ r: 4, stroke: chrome.surface, strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>

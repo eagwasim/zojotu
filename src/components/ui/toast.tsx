@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { X, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type ToastType = "success" | "error" | "info";
 
@@ -22,6 +23,13 @@ export function useToast() {
   return useContext(ToastContext);
 }
 
+const icons = { success: CheckCircle2, error: AlertCircle, info: Info };
+const iconColor = {
+  success: "text-good-ink",
+  error: "text-critical-ink",
+  info: "text-link",
+};
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -37,40 +45,36 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const icons = {
-    success: CheckCircle,
-    error: AlertCircle,
-    info: Info,
-  };
-
-  const colors = {
-    success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-    error: "border-destructive/30 bg-destructive/10 text-red-300",
-    info: "border-primary/30 bg-primary/10 text-primary",
-  };
-
   return (
     <ToastContext.Provider value={{ toast: addToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
-        <AnimatePresence>
+      <div
+        role="region"
+        aria-label="Notifications"
+        className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      >
+        <AnimatePresence initial={false}>
           {toasts.map((t) => {
             const Icon = icons[t.type];
             return (
               <motion.div
                 key={t.id}
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                className={`flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur-sm ${colors[t.type]}`}
+                role={t.type === "error" ? "alert" : "status"}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6, transition: { duration: 0.15, ease: "easeOut" } }}
+                transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+                className="pointer-events-auto flex items-start gap-3 rounded-lg bg-popover px-4 py-3 text-popover-foreground shadow-overlay"
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                <p className="text-sm">{t.message}</p>
+                <Icon className={cn("mt-0.5 size-4 shrink-0", iconColor[t.type])} aria-hidden />
+                <p className="flex-1 text-sm">{t.message}</p>
                 <button
+                  type="button"
+                  aria-label="Dismiss"
                   onClick={() => removeToast(t.id)}
-                  className="ml-2 shrink-0 rounded p-0.5 opacity-60 hover:opacity-100"
+                  className="relative -mr-1 shrink-0 rounded p-0.5 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="size-3.5" />
                 </button>
               </motion.div>
             );
