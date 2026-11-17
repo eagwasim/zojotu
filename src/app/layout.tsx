@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
+import { SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,8 +21,10 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Zojotu",
-  description: "Watch flipping & modding business tracker",
+  // Resolves relative canonical and Open Graph URLs.
+  metadataBase: new URL(SITE_URL),
+  title: { default: "Zojotu", template: "%s · Zojotu" },
+  description: "Affordable, careful watch servicing by hand in the Netherlands.",
 };
 
 export default function RootLayout({

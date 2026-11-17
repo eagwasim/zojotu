@@ -16,6 +16,8 @@ const PUBLIC_PATHS = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/service-catalog/public",
+  "/robots.txt",
+  "/sitemap.xml",
 ];
 
 export async function proxy(request: NextRequest) {
