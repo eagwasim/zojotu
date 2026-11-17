@@ -1,43 +1,46 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
+import { ChevronDown } from "lucide-react";
+import { Field, controlClasses, useFieldIds } from "./field";
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
+  hint?: string;
   error?: string;
   options: { value: string; label: string }[];
+  /** Text for the empty option. Pass `false` to omit it. */
+  placeholder?: string | false;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, id, options, ...props }, ref) => {
+  ({ className, label, hint, error, id, options, placeholder = "Select…", ...props }, ref) => {
+    const ids = useFieldIds(id, hint, error);
     return (
-      <div className="space-y-1.5">
-        {label && (
-          <label
-            htmlFor={id}
-            className="block text-sm font-medium text-foreground"
+      <Field label={label} hint={hint} error={error} ids={ids}>
+        <div className="relative">
+          <select
+            ref={ref}
+            id={ids.id}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={ids.describedBy}
+            className={cn(controlClasses, "h-9 appearance-none pr-9", className)}
+            {...props}
           >
-            {label}
-          </label>
-        )}
-        <select
-          ref={ref}
-          id={id}
-          className={cn(
-            "block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
-            error && "border-destructive",
-            className
-          )}
-          {...props}
-        >
-          <option value="">Select...</option>
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-      </div>
+            {placeholder !== false && <option value="">{placeholder}</option>}
+            {options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+        </div>
+      </Field>
     );
   }
 );

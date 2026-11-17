@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/portal", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/portal/jobs", label: "My Jobs", icon: Watch },
-  { href: "/portal/jobs/new", label: "Request Service", icon: PlusCircle },
+  { href: "/portal/jobs", label: "My jobs", icon: Watch },
+  { href: "/portal/jobs/new", label: "Request service", icon: PlusCircle },
   { href: "/portal/notifications", label: "Notifications", icon: Bell },
   { href: "/portal/profile", label: "Profile", icon: User },
 ];
@@ -43,7 +43,7 @@ export function PortalSidebar() {
     <aside className="fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-sidebar">
       <div className="flex h-14 items-center border-b border-border px-5">
         <Link href="/portal" className="flex items-center gap-2">
-          <Watch className="h-5 w-5 text-primary" />
+          <Watch className="h-5 w-5 text-foreground" />
           <span className="text-lg font-semibold text-foreground">
             Zojotu
           </span>
@@ -85,7 +85,7 @@ export function PortalSidebar() {
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
         >
           <LogOut className="h-4 w-4" />
-          Sign Out
+          Sign out
         </button>
       </div>
     </aside>

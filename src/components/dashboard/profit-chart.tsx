@@ -1,100 +1,87 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import { axisProps, chrome, formatAxisEuro, formatMonthLabel, gridProps, series } from "@/lib/chart-theme";
+import type { MonthPoint } from "@/lib/dashboard/compute";
+import { ChartCard } from "./chart-card";
+import { ChartEmpty } from "./chart-tooltip";
 
-interface MonthlyProfit {
-  month: string;
-  revenue: number;
-  cogs: number;
-  profit: number;
+const LOSS = "#d03b3b"; // status: critical. A loss month means something.
+
+function MonthTooltip({ active, payload }: { active?: boolean; payload?: { payload: MonthPoint }[] }) {
+  if (!active || !payload?.length) return null;
+  const m = payload[0].payload;
+  const rows: [string, number][] = [
+    ["Revenue", m.revenue],
+    ["Fees & shipping", -m.fees],
+    ["Cost of watches sold", -m.cogs],
+    ["Operating expenses", -m.opex],
+  ];
+  return (
+    <div className="min-w-52 rounded-lg bg-popover px-3 py-2.5 text-xs shadow-raised">
+      <p className="mb-1.5 font-medium text-foreground">{formatMonthLabel(m.month)}</p>
+      <p className="mb-1.5 text-base font-semibold tabular-nums text-foreground">
+        {formatCurrency(m.netProfit)} <span className="text-xs font-normal text-muted-foreground">net profit</span>
+      </p>
+      <dl className="flex flex-col gap-0.5 tabular-nums">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="text-foreground">{formatCurrency(v || 0)}</dd>
+          </div>
+        ))}
+        <div className="flex justify-between gap-4 pt-1">
+          <dt className="text-muted-foreground">Watches sold</dt>
+          <dd className="text-foreground">{m.sold}</dd>
+        </div>
+      </dl>
+    </div>
+  );
 }
 
-export function ProfitChart({ data }: { data: MonthlyProfit[] }) {
+/** Net profit per month. One series; loss months are marked. Revenue and costs live in the tooltip and table. */
+export function ProfitChart({ data }: { data: MonthPoint[] }) {
+  const hasData = data.some((m) => m.revenue || m.opex);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Revenue & Profit Over Time
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {data.length === 0 ? (
-          <div className="flex h-[350px] items-center justify-center text-sm text-muted-foreground">
-            No sales data yet
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="oklch(0.75 0.15 85)"
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="oklch(0.75 0.15 85)"
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="oklch(0.65 0.12 160)"
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="oklch(0.65 0.12 160)"
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.01 260)" />
-              <XAxis
-                dataKey="month"
-                stroke="oklch(0.6 0.01 260)"
-                fontSize={12}
-              />
-              <YAxis stroke="oklch(0.6 0.01 260)" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "oklch(0.14 0.01 260)",
-                  border: "1px solid oklch(0.25 0.01 260)",
-                  borderRadius: "8px",
-                  color: "oklch(0.95 0.01 260)",
-                }}
-                formatter={(value: any, name: any) => [formatCurrency(Number(value)), name.charAt(0).toUpperCase() + name.slice(1)]}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="oklch(0.75 0.15 85)"
-                fill="url(#colorRevenue)"
-                strokeWidth={2}
-              />
-              <Area
-                type="monotone"
-                dataKey="profit"
-                stroke="oklch(0.65 0.12 160)"
-                fill="url(#colorProfit)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
+    <ChartCard
+      title="Net profit by month"
+      description="Watch sales after fees, shipping, cost and operating expenses."
+      table={{
+        columns: [
+          { key: "month", label: "Month" },
+          { key: "sold", label: "Sold", align: "right" },
+          { key: "revenue", label: "Revenue", align: "right" },
+          { key: "costs", label: "Fees, cost & expenses", align: "right" },
+          { key: "net", label: "Net profit", align: "right" },
+        ],
+        rows: data.map((m) => ({
+          month: formatMonthLabel(m.month),
+          sold: m.sold,
+          revenue: formatCurrency(m.revenue),
+          costs: formatCurrency(m.fees + m.cogs + m.opex),
+          net: formatCurrency(m.netProfit),
+        })),
+      }}
+    >
+      {!hasData ? (
+        <ChartEmpty height={280}>No sales or expenses in this period.</ChartEmpty>
+      ) : (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid {...gridProps} />
+            <XAxis dataKey="month" {...axisProps} tickFormatter={formatMonthLabel} minTickGap={12} />
+            <YAxis {...axisProps} axisLine={false} tickFormatter={formatAxisEuro} width={64} />
+            <ReferenceLine y={0} stroke={chrome.axis} />
+            <Tooltip cursor={{ fill: chrome.grid, fillOpacity: 0.4 }} content={<MonthTooltip />} />
+            <Bar dataKey="netProfit" name="Net profit" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false}>
+              {data.map((m) => (
+                <Cell key={m.month} fill={m.netProfit < 0 ? LOSS : series[0]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </ChartCard>
   );
 }

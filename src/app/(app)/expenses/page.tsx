@@ -1,18 +1,28 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/filter-bar";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DateInput } from "@/components/ui/date-input";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { SummaryStrip, type SummaryItem } from "@/components/lists/summary-strip";
+import { useClearFilters } from "@/components/lists/use-clear-filters";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
 import { apiPost, apiPut, apiDelete } from "@/lib/api-client";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import type { ExpenseTotals } from "@/lib/queries/expenses";
 
 interface Expense {
   id: number;
@@ -21,6 +31,8 @@ interface Expense {
   description: string;
   amount: number;
 }
+
+const PAGE_SIZE = 20;
 
 const CATEGORIES = [
   "Tools",
@@ -31,6 +43,21 @@ const CATEGORIES = [
   "Other",
 ];
 
+// New expenses default to the category used last in this browser session.
+const LAST_CATEGORY_KEY = "expenses:last-category";
+
+function lastCategory(): string | undefined {
+  try {
+    const v = sessionStorage.getItem(LAST_CATEGORY_KEY);
+    return v && CATEGORIES.includes(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const errorMessage = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
+
 function ExpensesContent() {
   const { toast } = useToast();
   const {
@@ -39,19 +66,31 @@ function ExpensesContent() {
     page,
     totalPages,
     loading,
+    hasLoaded,
     filters,
     setPage,
     setFilter,
     setSearch,
     search,
     refresh,
-  } = usePaginatedFetch<Expense>({ url: "/api/expenses" });
+    sort,
+    setSort,
+    meta,
+  } = usePaginatedFetch<Expense>({ url: "/api/expenses", pageSize: PAGE_SIZE });
+  const clearFilters = useClearFilters();
 
   const [searchInput, setSearchInput] = useState(search);
   const [formOpen, setFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [defaultCategory, setDefaultCategory] = useState<string | undefined>();
+
+  const openForm = (expense: Expense | null) => {
+    setEditingExpense(expense);
+    setDefaultCategory(expense ? expense.category : lastCategory());
+    setFormOpen(true);
+  };
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -65,8 +104,8 @@ function ExpensesContent() {
       await apiDelete(`/api/expenses/${deleteTarget.id}`);
       toast("Expense deleted", "success");
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to delete expense", "error");
+    } catch (e) {
+      toast(errorMessage(e, "Failed to delete expense"), "error");
     } finally {
       setDeleteTarget(null);
       setDeleting(false);
@@ -90,134 +129,187 @@ function ExpensesContent() {
       } else {
         await apiPost("/api/expenses", data);
         toast("Expense added", "success");
+        try {
+          sessionStorage.setItem(LAST_CATEGORY_KEY, data.category);
+        } catch {}
       }
       setFormOpen(false);
       setEditingExpense(null);
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to save expense", "error");
+    } catch (e) {
+      toast(errorMessage(e, "Failed to save expense"), "error");
     }
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Expenses</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} expense{total !== 1 ? "s" : ""} recorded
+  const filtered = !!(search || filters.category);
+  const totals = meta.totals as ExpenseTotals | undefined;
+  const refetching = loading && hasLoaded;
+  const showStrip = !hasLoaded || filtered || (totals?.count ?? 0) > 0;
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    clearFilters();
+  };
+
+  const summary: SummaryItem[] = [
+    { label: "Total spent", value: totals && formatCurrency(totals.amount) },
+    { label: "Expenses", value: totals && String(totals.count) },
+  ];
+  // The biggest categories, unless a category filter already narrows it to one.
+  if (totals && !filters.category) {
+    for (const c of totals.byCategory.slice(0, 2)) {
+      summary.push({
+        label: c.category,
+        value: formatCurrency(c.amount),
+        hint: totals.amount > 0 ? `${Math.round((c.amount / totals.amount) * 100)}% of spend` : undefined,
+      });
+    }
+  }
+
+  const columns: Column<Expense>[] = [
+    {
+      key: "description",
+      header: "Description",
+      cell: (expense) => (
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">{expense.description}</p>
+          {/* Category and date columns are hidden on a phone; keep them visible here. */}
+          <p className="text-xs text-muted-foreground sm:hidden">
+            {expense.category} · {formatDate(expense.date)}
           </p>
         </div>
-        <Button onClick={() => { setEditingExpense(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
-      </div>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      sortable: true,
+      hideBelow: "sm",
+      cell: (expense) => <span className="text-muted-foreground">{expense.category}</span>,
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortable: true,
+      hideBelow: "sm",
+      className: "whitespace-nowrap",
+      cell: (expense) => <span className="text-muted-foreground">{formatDate(expense.date)}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      sortable: true,
+      className: "whitespace-nowrap font-medium text-foreground",
+      cell: (expense) => formatCurrency(expense.amount),
+    },
+    {
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      align: "right",
+      className: "py-2 pl-2",
+      cell: (expense) => (
+        <div className="flex items-center justify-end gap-2">
+          <IconButton aria-label={`Edit ${expense.description}`} onClick={() => openForm(expense)}>
+            <Pencil />
+          </IconButton>
+          <IconButton
+            aria-label={`Delete ${expense.description}`}
+            tone="destructive"
+            onClick={() => setDeleteTarget(expense)}
+          >
+            <Trash2 />
+          </IconButton>
+        </div>
+      ),
+    },
+  ];
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by description..."
-            className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Expenses"
+        description="Business costs that aren't tied to a single watch: tools, supplies, software."
+        actions={
+          <Button onClick={() => openForm(null)}>
+            <Plus />
+            Add expense
+          </Button>
+        }
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SearchInput
+          value={searchInput}
+          onChange={handleSearchChange}
+          placeholder="Search by description…"
+          className="sm:max-w-sm"
+        />
+        <div className="w-full sm:w-56">
+          <Select
+            aria-label="Category"
+            value={filters.category || ""}
+            onChange={(e) => setFilter("category", e.target.value)}
+            placeholder="All categories"
+            options={CATEGORIES.map((c) => ({ value: c, label: c }))}
           />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-md">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
-            <select
-              value={filters.category || ""}
-              onChange={(e) => setFilter("category", e.target.value)}
-              className="block w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      ) : expenses.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">No expenses recorded yet</p>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Description</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Amount</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
-                  {expenses.map((expense) => (
-                    <motion.tr
-                      key={expense.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-border transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">{expense.description}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{expense.category}</td>
-                      <td className="px-4 py-3 font-mono text-foreground">{formatCurrency(expense.amount)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(expense.date)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingExpense(expense); setFormOpen(true); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(expense)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
+      {showStrip && <SummaryStrip filtered={filtered} stale={refetching} items={summary} />}
 
+      <div aria-busy={loading} className={cn("space-y-4 transition-opacity duration-150", refetching && "opacity-60")}>
+        <DataTable
+          columns={columns}
+          rows={expenses}
+          getRowId={(expense) => expense.id}
+          loading={!hasLoaded}
+          sort={sort}
+          onSortChange={setSort}
+          caption="Expenses"
+          empty={
+            filtered ? (
+              <EmptyState
+                icon={Wallet}
+                title="No expenses match these filters"
+                description="Try another search term or category."
+                action={
+                  <Button variant="secondary" size="sm" onClick={handleClearFilters}>
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={Wallet}
+                title="No expenses recorded yet"
+                description="Add tools, supplies and other running costs so the dashboard can net them off your profit."
+                action={
+                  <Button size="sm" onClick={() => openForm(null)}>
+                    <Plus />
+                    Add expense
+                  </Button>
+                }
+              />
+            )
+          }
+        />
+
+        {expenses.length > 0 && (
           <Pagination
             page={page}
             totalPages={totalPages}
             total={total}
-            pageSize={20}
+            pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
-        </>
-      )}
+        )}
+      </div>
 
       <Dialog
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingExpense(null); }}
-        title={editingExpense ? "Edit Expense" : "Add Expense"}
+        title={editingExpense ? "Edit expense" : "Add expense"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -231,22 +323,20 @@ function ExpensesContent() {
             <Select
               label="Category"
               name="category"
-              defaultValue={editingExpense?.category}
+              defaultValue={defaultCategory}
+              placeholder={false}
               options={CATEGORIES.map((c) => ({ value: c, label: c }))}
             />
-            <Input
+            <CurrencyInput
               label="Amount"
               name="amount"
-              type="number"
-              step="0.01"
-              defaultValue={editingExpense?.amount?.toString()}
+              defaultValue={editingExpense?.amount}
               required
             />
           </div>
-          <Input
+          <DateInput
             label="Date"
             name="date"
-            type="date"
             defaultValue={editingExpense?.date}
             required
           />
@@ -254,7 +344,7 @@ function ExpensesContent() {
             <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingExpense(null); }}>
               Cancel
             </Button>
-            <Button type="submit">{editingExpense ? "Save" : "Add Expense"}</Button>
+            <Button type="submit">{editingExpense ? "Save changes" : "Add expense"}</Button>
           </div>
         </form>
       </Dialog>
@@ -263,17 +353,17 @@ function ExpensesContent() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Expense"
+        title="Delete expense"
         message={`Are you sure you want to delete "${deleteTarget?.description}"? This action cannot be undone.`}
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }
 
 export default function ExpensesPage() {
   return (
-    <Suspense fallback={<div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense fallback={<TableSkeleton cols={5} />}>
       <ExpensesContent />
     </Suspense>
   );

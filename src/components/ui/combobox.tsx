@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { cn } from "@/lib/utils";
 import { Search, X, Loader2 } from "lucide-react";
 
@@ -41,6 +41,8 @@ export function Combobox({
   const [selectedLabel, setSelectedLabel] = useState("");
   const [internalValue, setInternalValue] = useState(defaultValue || "");
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const inputId = useId();
+  const errorId = `${inputId}-error`;
 
   const value = controlledValue !== undefined ? controlledValue : internalValue;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -147,7 +149,7 @@ export function Combobox({
   return (
     <div className="space-y-1.5" ref={containerRef}>
       {label && (
-        <label className="block text-sm font-medium text-foreground">
+        <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
           {label}
         </label>
       )}
@@ -155,16 +157,22 @@ export function Combobox({
         <input type="hidden" name={name} value={value} />
         <div
           className={cn(
-            "flex items-center rounded-md border border-input bg-background text-sm",
-            error && "border-destructive",
-            open && "border-primary ring-1 ring-primary"
+            "flex h-9 items-center rounded-md border border-input bg-card text-sm transition-[border-color,box-shadow] duration-150",
+            error && "border-critical",
+            open && "border-ring ring-3 ring-ring/15"
           )}
         >
           <Search className="ml-2.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <input
+            id={inputId}
+            role="combobox"
+            aria-expanded={open}
+            aria-autocomplete="list"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
             ref={inputRef}
             type="text"
-            className="w-full bg-transparent px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="w-full bg-transparent px-2 py-2 text-sm text-foreground placeholder:text-placeholder focus:outline-none"
             placeholder={selectedLabel || placeholder}
             value={selectedLabel && !open ? "" : query}
             onChange={handleInputChange}
@@ -179,6 +187,7 @@ export function Combobox({
             <button
               type="button"
               onClick={handleClear}
+              aria-label="Clear selected watch"
               className="mr-2 rounded p-0.5 text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
@@ -193,7 +202,7 @@ export function Combobox({
         )}
 
         {open && (
-          <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+          <div className="absolute z-[60] mt-1 w-full overflow-hidden rounded-lg bg-popover p-1 shadow-raised">
             <div className="max-h-[200px] overflow-y-auto">
               {results.length === 0 && !loading && (
                 <div className="px-3 py-2 text-sm text-muted-foreground">
@@ -222,7 +231,7 @@ export function Combobox({
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p id={errorId} className="text-xs text-critical-ink">{error}</p>}
     </div>
   );
 }

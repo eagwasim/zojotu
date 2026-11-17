@@ -1,7 +1,27 @@
 import { db } from "../db";
 import { watches, parts, sales } from "../db/schema";
-import { eq, sql, desc, and, or } from "drizzle-orm";
-import { paginatedResult, type PaginatedResult } from "./pagination";
+import { eq, sql, desc, and, or, ne, inArray, asc } from "drizzle-orm";
+import { watchImages } from "../db/schema";
+import type { WatchInput, WatchUpdate, SETTABLE_STATUSES } from "../validators/watch";
+import { paginatedResult } from "./pagination";
+import { saleNetRevenue, saleProfit } from "../profit";
+import { dbNow } from "../db/now";
+
+type SettableStatus = (typeof SETTABLE_STATUSES)[number];
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Moving to "Listed" stamps the listed date, but never overwrites one that is already set. */
+const keepOrStampListedDate = () => sql`coalesce(${watches.listedDate}, ${today()})`;
+
+function withListingDefaults<T extends WatchUpdate>(data: T) {
+  if (data.status === "Listed" && data.listedDate === undefined) {
+    return { ...data, listedDate: keepOrStampListedDate() };
+  }
+  return data;
+}
 
 export async function getAllWatches(status?: string) {
   const query = db.select().from(watches).orderBy(desc(watches.createdAt));
@@ -11,46 +31,89 @@ export async function getAllWatches(status?: string) {
   return query;
 }
 
+export const WATCH_SORTS = ["acquired", "cost", "asking", "brand", "listed"] as const;
+export type WatchSort = (typeof WATCH_SORTS)[number];
+
+/*
+ * Correlated subqueries, written with explicit table-qualified identifiers: Drizzle renders
+ * interpolated columns unqualified, which would make `id` resolve to the inner table.
+ * Portable across Postgres and SQLite.
+ */
+/** Parts total per watch. */
+const partsCostSql = sql<number>`coalesce((select sum(p.cost) from parts p where p.watch_id = ${sql.raw('"watches"."id"')}), 0)`;
+/** Chosen cover photo, else the first uploaded one. */
+const coverImageSql = sql<number | null>`coalesce(${sql.raw('"watches"."primary_image_id"')}, (select min(i.id) from watch_images i where i.watch_id = ${sql.raw('"watches"."id"')}))`;
+
+function orderFor(sort: { key: WatchSort; dir: "asc" | "desc" } | null) {
+  if (!sort) return [desc(watches.createdAt)];
+  const by = sort.dir === "desc" ? desc : asc;
+  switch (sort.key) {
+    case "acquired":
+      return [by(watches.acquisitionDate), desc(watches.id)];
+    case "cost":
+      return [by(sql`${watches.baseCost} + ${partsCostSql}`), desc(watches.id)];
+    case "brand":
+      return [by(sql`lower(${watches.brand})`), asc(sql`lower(${watches.model})`)];
+    // Watches without a value always sort last, whichever the direction.
+    case "asking":
+      return [asc(sql`case when ${watches.askingPrice} is null then 1 else 0 end`), by(watches.askingPrice)];
+    case "listed":
+      return [asc(sql`case when ${watches.listedDate} is null then 1 else 0 end`), by(watches.listedDate)];
+  }
+}
+
 export async function getPaginatedWatches(params: {
   page: number;
   pageSize: number;
   status?: string;
   search?: string;
-}): Promise<PaginatedResult<any>> {
-  const { page, pageSize, status, search } = params;
-  const conditions: any[] = [];
+  sort?: { key: WatchSort; dir: "asc" | "desc" } | null;
+}) {
+  const { page, pageSize, status, search, sort = null } = params;
 
-  if (status) {
-    conditions.push(eq(watches.status, status));
-  }
-  if (search) {
-    const term = `%${search.toLowerCase()}%`;
-    conditions.push(
-      or(
-        sql`LOWER(${watches.brand}) LIKE ${term}`,
-        sql`LOWER(${watches.model}) LIKE ${term}`
+  const searchCondition = search
+    ? or(
+        sql`LOWER(${watches.brand}) LIKE ${`%${search.toLowerCase()}%`}`,
+        sql`LOWER(${watches.model}) LIKE ${`%${search.toLowerCase()}%`}`,
+        sql`LOWER(coalesce(${watches.reference}, '')) LIKE ${`%${search.toLowerCase()}%`}`
       )
-    );
-  }
+    : undefined;
+  const where = and(...[searchCondition, status ? eq(watches.status, status) : undefined].filter(Boolean));
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const [countResult] = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(watches)
-    .where(where);
-
+  const [countResult] = await db.select({ count: sql<number>`COUNT(*)` }).from(watches).where(where);
   const total = Number(countResult.count);
 
-  const data = await db
-    .select()
+  const rows = await db
+    .select({ watch: watches, partsCost: partsCostSql, coverImageId: coverImageSql })
     .from(watches)
     .where(where)
-    .orderBy(desc(watches.createdAt))
+    .orderBy(...orderFor(sort))
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
-  return paginatedResult(data, total, page, pageSize);
+  const data = rows.map((r: { watch: typeof watches.$inferSelect; partsCost: number | string; coverImageId: number | string | null }) => {
+    const partsCost = Number(r.partsCost) || 0;
+    return {
+      ...r.watch,
+      partsCost,
+      costBasis: r.watch.baseCost + partsCost,
+      coverImageId: r.coverImageId === null ? null : Number(r.coverImageId),
+    };
+  });
+
+  // Per-stage counts for the filter tabs: respect the search, ignore the stage filter.
+  const grouped: { status: string; count: number | string }[] = await db
+    .select({ status: watches.status, count: sql<number>`COUNT(*)` })
+    .from(watches)
+    .where(searchCondition)
+    .groupBy(watches.status);
+  const counts: Record<string, number> = { all: 0 };
+  for (const g of grouped) {
+    counts[g.status] = Number(g.count);
+    counts.all += Number(g.count);
+  }
+
+  return { ...paginatedResult(data, total, page, pageSize), counts };
 }
 
 export async function searchWatches(
@@ -113,10 +176,8 @@ export async function getWatchWithEconomics(id: number) {
 
   const totalPartsCost = watchParts.reduce((sum: number, p: any) => sum + p.cost, 0);
   const totalCogs = watch.baseCost + totalPartsCost;
-  const netRevenue = sale
-    ? sale.grossSalePrice - sale.platformFee - sale.shippingInsurance
-    : 0;
-  const unitNetProfit = sale ? netRevenue - totalCogs : 0;
+  const netRevenue = sale ? saleNetRevenue(sale) : 0;
+  const unitNetProfit = sale ? saleProfit(sale, totalCogs) : 0;
   const unitRoi = sale && totalCogs > 0 ? unitNetProfit / totalCogs : 0;
 
   let daysInInventory: number | null = null;
@@ -133,10 +194,17 @@ export async function getWatchWithEconomics(id: number) {
     );
   }
 
+  const images = await db
+    .select()
+    .from(watchImages)
+    .where(eq(watchImages.watchId, id))
+    .orderBy(asc(watchImages.sortOrder), asc(watchImages.id));
+
   return {
     ...watch,
     parts: watchParts,
     sale: sale || null,
+    images,
     economics: {
       baseCost: watch.baseCost,
       totalPartsCost,
@@ -150,41 +218,31 @@ export async function getWatchWithEconomics(id: number) {
   };
 }
 
-export async function createWatch(data: {
-  brand: string;
-  model: string;
-  reference?: string;
-  movementType: string;
-  acquisitionDate: string;
-  source: string;
-  baseCost: number;
-  status: string;
-  notes?: string;
-}) {
-  const [watch] = await db.insert(watches).values(data).returning();
+export async function createWatch(data: WatchInput) {
+  const values =
+    data.status === "Listed" && !data.listedDate ? { ...data, listedDate: today() } : data;
+  const [watch] = await db.insert(watches).values(values).returning();
   return watch;
 }
 
-export async function updateWatch(
-  id: number,
-  data: Partial<{
-    brand: string;
-    model: string;
-    reference: string;
-    movementType: string;
-    acquisitionDate: string;
-    source: string;
-    baseCost: number;
-    status: string;
-    notes: string;
-  }>
-) {
+export async function updateWatch(id: number, data: WatchUpdate) {
   const [watch] = await db
     .update(watches)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...withListingDefaults(data), updatedAt: dbNow() })
     .where(eq(watches.id, id))
     .returning();
   return watch;
+}
+
+/** Change status for many watches at once. Never used for "Sold" (that comes from a sale). */
+export async function bulkUpdateStatus(ids: number[], status: SettableStatus) {
+  const listing = status === "Listed" ? { listedDate: keepOrStampListedDate() } : {};
+  const updated = await db
+    .update(watches)
+    .set({ status, ...listing, updatedAt: dbNow() })
+    .where(and(inArray(watches.id, ids), ne(watches.status, "Sold")))
+    .returning({ id: watches.id });
+  return updated.map((r: { id: number }) => r.id);
 }
 
 export async function deleteWatch(id: number) {

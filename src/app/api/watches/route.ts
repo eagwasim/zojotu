@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllWatches, createWatch, getPaginatedWatches } from "@/lib/queries/watches";
+import { getAllWatches, createWatch, getPaginatedWatches, WATCH_SORTS } from "@/lib/queries/watches";
+import { parseSort } from "@/lib/queries/pagination";
 import { watchSchema } from "@/lib/validators/watch";
 import { requireAdmin } from "@/lib/authorize";
 
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
       pageSize: parseInt(params.get("pageSize") || "20"),
       status: params.get("status") || undefined,
       search: params.get("search") || undefined,
+      sort: parseSort(params, WATCH_SORTS),
     });
     return NextResponse.json(result);
   }

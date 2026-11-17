@@ -1,9 +1,14 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/filter-bar";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -106,117 +111,110 @@ function ServiceCatalogContent() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Service Catalog</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} service{total !== 1 ? "s" : ""} offered
-          </p>
-        </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Service
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Service catalog"
+        description={`${total} service${total !== 1 ? "s" : ""} offered`}
+        actions={
+          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Plus />
+            Add service
+          </Button>
+        }
+      />
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search services..."
-            className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <SearchInput
+          value={searchInput}
+          onChange={handleSearchChange}
+          placeholder="Search services…"
+          className="sm:max-w-sm"
+        />
+        <div className="w-full sm:w-56">
+          <Select
+            label="Category"
+            value={filters.category || ""}
+            onChange={(e) => setFilter("category", e.target.value)}
+            placeholder="All categories"
+            options={CATEGORIES.map((c) => ({ value: c, label: c }))}
           />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-md">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
-            <select
-              value={filters.category || ""}
-              onChange={(e) => setFilter("category", e.target.value)}
-              className="block w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <TableSkeleton cols={5} />
       ) : items.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">No services in catalog yet</p>
-        </div>
+        <EmptyState
+          title={search || filters.category ? "No services match your filters" : "No services in the catalog yet"}
+          description={
+            search || filters.category
+              ? "Try a different search term or category."
+              : "Add the services you offer so customers can request them."
+          }
+          action={
+            !(search || filters.category) && (
+              <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+                <Plus />
+                Add service
+              </Button>
+            )
+          }
+        />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-xl bg-card shadow-card">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Service</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Est. Price</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">Service</th>
+                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">Category</th>
+                  <th className="border-b border-border px-4 py-3 text-right text-xs font-medium text-muted-foreground">Est. price</th>
+                  <th className="border-b border-border px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
+                  <th className="border-b border-border px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence>
-                  {items.map((item) => (
-                    <motion.tr
-                      key={item.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-border transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{item.name}</p>
-                        {item.description && (
-                          <p className="text-xs text-muted-foreground">{item.description}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{item.category}</td>
-                      <td className="px-4 py-3 font-mono text-foreground">
-                        {formatCurrency(item.estimatedPrice)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${item.active ? "bg-green-500/10 text-green-500" : "bg-zinc-500/10 text-zinc-500"}`}>
-                          {item.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditing(item); setFormOpen(true); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(item)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-t border-border transition-colors hover:bg-accent/50"
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{item.name}</p>
+                      {item.description && (
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{item.category}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                      {formatCurrency(item.estimatedPrice)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={item.active ? "good" : "neutral"}>
+                        {item.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <IconButton
+                          aria-label={`Edit ${item.name}`}
+                          onClick={() => { setEditing(item); setFormOpen(true); }}
+                        >
+                          <Pencil />
+                        </IconButton>
+                        <IconButton
+                          aria-label={`Delete ${item.name}`}
+                          tone="destructive"
+                          onClick={() => setDeleteTarget(item)}
+                        >
+                          <Trash2 />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -234,11 +232,11 @@ function ServiceCatalogContent() {
       <Dialog
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditing(null); }}
-        title={editing ? "Edit Service" : "Add Service"}
+        title={editing ? "Edit service" : "Add service"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Service Name"
+            label="Service name"
             name="name"
             defaultValue={editing?.name}
             placeholder="e.g. Battery Replacement"
@@ -258,7 +256,7 @@ function ServiceCatalogContent() {
               options={CATEGORIES.map((c) => ({ value: c, label: c }))}
             />
             <Input
-              label="Estimated Price"
+              label="Estimated price"
               name="estimatedPrice"
               type="number"
               step="0.01"
@@ -279,7 +277,7 @@ function ServiceCatalogContent() {
             <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditing(null); }}>
               Cancel
             </Button>
-            <Button type="submit">{editing ? "Save" : "Add Service"}</Button>
+            <Button type="submit">{editing ? "Save changes" : "Add service"}</Button>
           </div>
         </form>
       </Dialog>
@@ -288,17 +286,17 @@ function ServiceCatalogContent() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Service"
+        title="Delete service"
         message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }
 
 export default function ServiceCatalogPage() {
   return (
-    <Suspense fallback={<div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense fallback={<TableSkeleton cols={5} />}>
       <ServiceCatalogContent />
     </Suspense>
   );

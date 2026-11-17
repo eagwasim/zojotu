@@ -17,6 +17,7 @@ import {
   servicePaymentEmail,
 } from "../email/templates/service-status";
 import { newServiceRequestAdminEmail } from "../email/templates/new-request";
+import { dbNow } from "../db/now";
 
 function decryptJobResult(job: any) {
   if (!job) return job;
@@ -230,7 +231,7 @@ export async function updateServiceJob(
 ) {
   const [job] = await db
     .update(serviceJobs)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...data, updatedAt: dbNow() })
     .where(eq(serviceJobs.id, id))
     .returning();
 
@@ -282,7 +283,7 @@ export async function acceptServiceJob(id: number) {
 
   const [job] = await db
     .update(serviceJobs)
-    .set({ status: "Accepted", shippingAddress, updatedAt: new Date() })
+    .set({ status: "Accepted", shippingAddress, updatedAt: dbNow() })
     .where(eq(serviceJobs.id, id))
     .returning();
 
@@ -308,7 +309,7 @@ export async function acceptServiceJob(id: number) {
 export async function refuseServiceJob(id: number, reason: string) {
   const [job] = await db
     .update(serviceJobs)
-    .set({ status: "Refused", rejectionReason: reason, updatedAt: new Date()})
+    .set({ status: "Refused", rejectionReason: reason, updatedAt: dbNow()})
     .where(eq(serviceJobs.id, id))
     .returning();
 
@@ -339,7 +340,7 @@ export async function updateServiceJobStatus(id: number, status: string) {
     Collected: "dateCollected",
   };
 
-  const updates: any = { status, updatedAt: new Date() };
+  const updates: any = { status, updatedAt: dbNow() };
   if (dateField[status]) {
     updates[dateField[status]] = new Date().toISOString().split("T")[0];
   }

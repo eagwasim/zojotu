@@ -1,36 +1,73 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
+import { Field, controlClasses, useFieldIds } from "./field";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  hint?: string;
   error?: string;
+  /** Show "(optional)" beside the label when the field is not required. */
+  markOptional?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, ...props }, ref) => {
+  ({ className, label, hint, error, id, markOptional, required, ...props }, ref) => {
+    const ids = useFieldIds(id, hint, error);
     return (
-      <div className="space-y-1.5">
-        {label && (
-          <label
-            htmlFor={id}
-            className="block text-sm font-medium text-foreground"
-          >
-            {label}
-          </label>
-        )}
+      <Field
+        label={label}
+        hint={hint}
+        error={error}
+        ids={ids}
+        required={markOptional ? !!required : undefined}
+      >
         <input
           ref={ref}
-          id={id}
-          className={cn(
-            "block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
-            error && "border-destructive",
-            className
-          )}
+          id={ids.id}
+          required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={ids.describedBy}
+          className={cn(controlClasses, "h-9", className)}
           {...props}
         />
-        {error && <p className="text-xs text-destructive">{error}</p>}
-      </div>
+      </Field>
     );
   }
 );
 Input.displayName = "Input";
+
+interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
+  hint?: string;
+  error?: string;
+  markOptional?: boolean;
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, label, hint, error, id, markOptional, required, rows = 3, ...props }, ref) => {
+    const ids = useFieldIds(id, hint, error);
+    return (
+      <Field
+        label={label}
+        hint={hint}
+        error={error}
+        ids={ids}
+        required={markOptional ? !!required : undefined}
+      >
+        <textarea
+          ref={ref}
+          id={ids.id}
+          rows={rows}
+          required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={ids.describedBy}
+          className={cn(controlClasses, "min-h-[4.5rem] resize-y py-2", className)}
+          {...props}
+        />
+      </Field>
+    );
+  }
+);
+Textarea.displayName = "Textarea";

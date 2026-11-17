@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllExpenses, createExpense, getPaginatedExpenses } from "@/lib/queries/expenses";
+import { getAllExpenses, createExpense, getPaginatedExpenses, EXPENSE_SORTS } from "@/lib/queries/expenses";
+import { parseSort } from "@/lib/queries/pagination";
 import { expenseSchema } from "@/lib/validators/expense";
 import { requireAdmin } from "@/lib/authorize";
 
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
       pageSize: parseInt(params.get("pageSize") || "20"),
       search: params.get("search") || undefined,
       category: params.get("category") || undefined,
+      sort: parseSort(params, EXPENSE_SORTS),
     });
     return NextResponse.json(result);
   }

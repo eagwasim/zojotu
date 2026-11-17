@@ -5,6 +5,7 @@ import {
   deleteExpense,
 } from "@/lib/queries/expenses";
 import { requireAdmin } from "@/lib/authorize";
+import { expenseSchema } from "@/lib/validators/expense";
 
 export async function GET(
   request: NextRequest,
@@ -28,8 +29,14 @@ export async function PUT(
   if (denied) return denied;
 
   const { id } = await params;
-  const body = await request.json();
-  const expense = await updateExpense(parseInt(id), body);
+  const result = expenseSchema.partial().safeParse(await request.json().catch(() => null));
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: result.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const expense = await updateExpense(parseInt(id), result.data);
 
   if (!expense) {
     return NextResponse.json({ error: "Expense not found" }, { status: 404 });

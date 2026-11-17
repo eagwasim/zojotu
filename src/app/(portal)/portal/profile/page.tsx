@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { apiPut } from "@/lib/api-client";
@@ -56,8 +57,9 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="mx-auto max-w-xl space-y-6" role="status" aria-label="Loading">
+        <Skeleton className="h-16 w-64" />
+        <Skeleton className="h-96 rounded-xl" />
       </div>
     );
   }
@@ -65,22 +67,13 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="mx-auto max-w-xl space-y-6"
-    >
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Update your contact information
-        </p>
-      </div>
+    <div className="mx-auto max-w-xl space-y-6">
+      <PageHeader title="My profile" description="Update your contact information" />
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Full Name"
+            label="Full name"
             name="displayName"
             defaultValue={profile.displayName}
             required
@@ -99,25 +92,20 @@ export default function ProfilePage() {
             defaultValue={profile.phone || ""}
             placeholder="+31 6 1234 5678"
           />
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">
-              Address
-            </label>
-            <textarea
-              name="address"
-              defaultValue={profile.address || ""}
-              rows={3}
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Your shipping address..."
-            />
-          </div>
+          <Textarea
+            label="Address"
+            name="address"
+            defaultValue={profile.address || ""}
+            rows={3}
+            placeholder="Your shipping address…"
+          />
           <div className="flex justify-end pt-2">
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : "Save changes"}
             </Button>
           </div>
         </form>
       </Card>
-    </motion.div>
+    </div>
   );
 }

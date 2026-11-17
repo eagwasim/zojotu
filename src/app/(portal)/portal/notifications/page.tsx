@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDate } from "@/lib/utils";
 import { apiPut } from "@/lib/api-client";
@@ -56,35 +57,30 @@ export default function NotificationsPage() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} notification{total !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-          <CheckCheck className="mr-2 h-4 w-4" />
-          Mark all read
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Notifications"
+        description={`${total} notification${total !== 1 ? "s" : ""}`}
+        actions={
+          <Button variant="secondary" size="sm" onClick={handleMarkAllRead}>
+            <CheckCheck />
+            Mark all as read
+          </Button>
+        }
+      />
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label="Loading" className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[68px] rounded-lg" />
+          ))}
         </div>
       ) : notifications.length === 0 ? (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12">
-            <Bell className="h-10 w-10 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">No notifications yet</p>
-          </div>
-        </Card>
+        <EmptyState
+          icon={Bell}
+          title="No notifications yet"
+          description="Updates about your service requests will appear here."
+        />
       ) : (
         <>
           <div className="space-y-2">
@@ -92,28 +88,31 @@ export default function NotificationsPage() {
               <div
                 key={n.id}
                 onClick={() => !n.read && handleMarkRead(n.id)}
-                className={`cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
+                className={`cursor-pointer rounded-lg px-4 py-3 transition-colors ${
                   n.read
-                    ? "border-border bg-background"
-                    : "border-primary/20 bg-primary/5"
+                    ? "border border-border bg-background hover:bg-accent/50"
+                    : "bg-card shadow-card hover:bg-accent/50"
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{n.title}</p>
+                    <p className={`text-sm text-foreground ${n.read ? "font-medium" : "font-semibold"}`}>{n.title}</p>
                     <p className="mt-0.5 text-sm text-muted-foreground">{n.message}</p>
                   </div>
                   <div className="ml-4 flex flex-col items-end gap-1">
                     <span className="text-xs text-muted-foreground">{formatDate(n.createdAt)}</span>
                     {!n.read && (
-                      <span className="h-2 w-2 rounded-full bg-primary" />
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-link">
+                        <span aria-hidden className="h-2 w-2 rounded-full bg-link" />
+                        Unread
+                      </span>
                     )}
                   </div>
                 </div>
                 {n.serviceJobId && (
                   <Link
                     href={`/portal/jobs/${n.serviceJobId}`}
-                    className="mt-1 inline-block text-xs text-primary hover:underline"
+                    className="mt-1 inline-block text-xs text-link hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     View job
@@ -132,6 +131,6 @@ export default function NotificationsPage() {
           />
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

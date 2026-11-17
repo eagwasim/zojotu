@@ -1,0 +1,110 @@
+/*
+ * Motion for the public site. Everything here is opt-in under `prefers-reduced-motion: no-preference`;
+ * with reduced motion the content is simply shown in its final state.
+ */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: scale(1.025);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Hero entrance: the copy rises in, one block after another, once on load. */
+@media (prefers-reduced-motion: no-preference) {
+  .enter > * {
+    animation: rise 700ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+  .enter > :nth-child(2) {
+    animation-delay: 90ms;
+  }
+  .enter > :nth-child(3) {
+    animation-delay: 180ms;
+  }
+  .enter > :nth-child(4) {
+    animation-delay: 270ms;
+  }
+  .enter > :nth-child(5) {
+    animation-delay: 360ms;
+  }
+
+  .enterPhoto {
+    animation: settle 1100ms cubic-bezier(0.2, 0, 0, 1) 120ms both;
+  }
+}
+
+/*
+ * Moment 1: the photograph "develops" from a muted print to full colour as it scrolls into view.
+ * The parent <Reveal> sets data-shown once.
+ */
+.develop {
+  filter: saturate(0.15) contrast(0.92) brightness(1.04);
+  transform: scale(1.04);
+  transition:
+    filter 1600ms cubic-bezier(0.2, 0, 0, 1),
+    transform 1600ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-shown] .develop {
+  filter: none;
+  transform: none;
+}
+
+/* Moment 2: the line joining the steps draws down as the list comes into view. */
+.drawLine {
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 1400ms cubic-bezier(0.2, 0, 0, 1) 150ms;
+}
+
+[data-shown] .drawLine {
+  transform: none;
+}
+
+.step {
+  opacity: 0.35;
+  transition: opacity 500ms ease-out;
+}
+
+[data-shown] .step {
+  opacity: 1;
+}
+
+[data-shown] .step:nth-child(2) {
+  transition-delay: 200ms;
+}
+[data-shown] .step:nth-child(3) {
+  transition-delay: 400ms;
+}
+[data-shown] .step:nth-child(4) {
+  transition-delay: 600ms;
+}
+[data-shown] .step:nth-child(5) {
+  transition-delay: 800ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .develop,
+  .drawLine,
+  .step {
+    filter: none;
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+}

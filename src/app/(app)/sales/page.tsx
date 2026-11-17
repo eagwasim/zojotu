@@ -1,19 +1,28 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SearchInput } from "@/components/ui/filter-bar";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Select } from "@/components/ui/select";
-import { Combobox } from "@/components/ui/combobox";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { SummaryStrip } from "@/components/lists/summary-strip";
+import { useClearFilters } from "@/components/lists/use-clear-filters";
+import { RecordSaleSheet } from "@/components/sales/record-sale-sheet";
 import { usePaginatedFetch } from "@/hooks/use-paginated-fetch";
-import { apiPost, apiPut, apiDelete } from "@/lib/api-client";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { apiDelete } from "@/lib/api-client";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { saleFees } from "@/lib/profit";
+import { useSuggestions } from "@/hooks/use-form-data";
+import type { SaleTotals } from "@/lib/queries/sales";
 
 interface Sale {
   id: number;
@@ -23,24 +32,23 @@ interface Sale {
   grossSalePrice: number;
   platformFee: number;
   shippingInsurance: number;
-  notes?: string;
-  watchBrand?: string;
-  watchModel?: string;
+  notes?: string | null;
+  watchBrand?: string | null;
+  watchModel?: string | null;
+  /** Purchase cost + parts, from the API. */
+  costBasis: number;
+  /** Price − fees − cost basis, from the API (src/lib/profit.ts). */
+  profit: number;
 }
 
-const PLATFORMS = [
-  "Chrono24",
-  "eBay",
-  "Etsy",
-  "Facebook Marketplace",
-  "Reddit (r/Watchexchange)",
-  "Private Sale",
-  "Instagram",
-  "Vinted",
-  "Other",
-];
+const PAGE_SIZE = 20;
+
+const getWatchLabel = (sale: Sale) =>
+  sale.watchBrand && sale.watchModel ? `${sale.watchBrand} ${sale.watchModel}` : `Watch #${sale.watchId}`;
 
 function SalesContent() {
+  // Platforms actually used (plus common ones), so any platform recorded on a sale can be filtered.
+  const platformOptions = useSuggestions("platform");
   const { toast } = useToast();
   const {
     data: salesList,
@@ -48,13 +56,18 @@ function SalesContent() {
     page,
     totalPages,
     loading,
+    hasLoaded,
     filters,
     setPage,
     setFilter,
     setSearch,
     search,
     refresh,
-  } = usePaginatedFetch<Sale>({ url: "/api/sales" });
+    sort,
+    setSort,
+    meta,
+  } = usePaginatedFetch<Sale>({ url: "/api/sales", pageSize: PAGE_SIZE });
+  const clearFilters = useClearFilters();
 
   const [searchInput, setSearchInput] = useState(search);
   const [formOpen, setFormOpen] = useState(false);
@@ -62,9 +75,23 @@ function SalesContent() {
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const filtered = !!(search || filters.platform);
+  const totals = meta.totals as SaleTotals | undefined;
+  const refetching = loading && hasLoaded;
+
+  const openNew = () => {
+    setEditingSale(null);
+    setFormOpen(true);
+  };
+
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
     setSearch(value);
+  };
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    clearFilters();
   };
 
   const handleDelete = async () => {
@@ -74,268 +101,227 @@ function SalesContent() {
       await apiDelete(`/api/sales/${deleteTarget.id}`);
       toast("Sale deleted", "success");
       refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to delete sale", "error");
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : "Failed to delete sale", "error");
     } finally {
       setDeleteTarget(null);
       setDeleting(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      watchId: parseInt(formData.get("watchId") as string),
-      saleDate: formData.get("saleDate") as string,
-      platform: formData.get("platform") as string,
-      grossSalePrice: parseFloat(formData.get("grossSalePrice") as string),
-      platformFee: parseFloat((formData.get("platformFee") as string) || "0"),
-      shippingInsurance: parseFloat(
-        (formData.get("shippingInsurance") as string) || "0"
-      ),
-      notes: (formData.get("notes") as string) || undefined,
-    };
-
-    try {
-      if (editingSale) {
-        await apiPut(`/api/sales/${editingSale.id}`, data);
-        toast("Sale updated", "success");
-      } else {
-        await apiPost("/api/sales", data);
-        toast("Sale recorded", "success");
-      }
-      setFormOpen(false);
-      setEditingSale(null);
-      refresh();
-    } catch (e: any) {
-      toast(e.message || "Failed to save sale", "error");
-    }
-  };
-
-  const getWatchLabel = (sale: Sale) => {
-    if (sale.watchBrand && sale.watchModel) {
-      return `${sale.watchBrand} ${sale.watchModel}`;
-    }
-    return `Watch #${sale.watchId}`;
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Sales</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {total} sale{total !== 1 ? "s" : ""} recorded
+  const columns: Column<Sale>[] = [
+    {
+      key: "watch",
+      header: "Watch",
+      sortable: true,
+      cell: (sale) => (
+        <div className="min-w-0">
+          <Link
+            href={`/inventory/${sale.watchId}`}
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            {getWatchLabel(sale)}
+          </Link>
+          {/* Date and platform columns are hidden on a phone; keep them visible here. */}
+          <p className="text-xs text-muted-foreground sm:hidden">
+            {formatDate(sale.saleDate)} · {sale.platform}
           </p>
         </div>
-        <Button onClick={() => { setEditingSale(null); setFormOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Record Sale
-        </Button>
-      </div>
+      ),
+    },
+    {
+      key: "platform",
+      header: "Platform",
+      sortable: true,
+      hideBelow: "md",
+      cell: (sale) => <span className="text-muted-foreground">{sale.platform}</span>,
+    },
+    {
+      key: "date",
+      header: "Sold",
+      sortable: true,
+      hideBelow: "sm",
+      className: "whitespace-nowrap",
+      cell: (sale) => <span className="text-muted-foreground">{formatDate(sale.saleDate)}</span>,
+    },
+    {
+      key: "price",
+      header: "Price",
+      align: "right",
+      sortable: true,
+      className: "whitespace-nowrap",
+      cell: (sale) => formatCurrency(sale.grossSalePrice),
+    },
+    {
+      key: "fees",
+      header: "Fees & shipping",
+      align: "right",
+      hideBelow: "lg",
+      className: "whitespace-nowrap text-muted-foreground",
+      cell: (sale) => formatCurrency(saleFees(sale)),
+    },
+    {
+      key: "profit",
+      header: "Profit",
+      align: "right",
+      sortable: true,
+      className: "whitespace-nowrap font-medium",
+      cell: (sale) => (
+        <span className={sale.profit < 0 ? "text-critical-ink" : "text-foreground"}>
+          {formatCurrency(sale.profit)}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: <span className="sr-only">Actions</span>,
+      align: "right",
+      className: "py-2 pl-2",
+      cell: (sale) => (
+        <div className="flex items-center justify-end gap-2">
+          <IconButton
+            aria-label={`Edit sale of ${getWatchLabel(sale)}`}
+            onClick={() => {
+              setEditingSale(sale);
+              setFormOpen(true);
+            }}
+          >
+            <Pencil />
+          </IconButton>
+          <IconButton
+            aria-label={`Delete sale of ${getWatchLabel(sale)}`}
+            tone="destructive"
+            onClick={() => setDeleteTarget(sale)}
+          >
+            <Trash2 />
+          </IconButton>
+        </div>
+      ),
+    },
+  ];
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by watch brand or model..."
-            className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+  const showStrip = !hasLoaded || filtered || (totals?.count ?? 0) > 0;
+  const margin = totals && totals.revenue > 0 ? totals.profit / totals.revenue : null;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Sales"
+        description="Every sale, with fees and profit after purchase cost and parts."
+        actions={
+          <Button onClick={openNew}>
+            <Plus />
+            Record sale
+          </Button>
+        }
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SearchInput
+          value={searchInput}
+          onChange={handleSearchChange}
+          placeholder="Search by watch brand or model…"
+          className="sm:max-w-sm"
+        />
+        <div className="w-full sm:w-56">
+          <Select
+            aria-label="Platform"
+            value={filters.platform || ""}
+            onChange={(e) => setFilter("platform", e.target.value)}
+            placeholder="All platforms"
+            options={platformOptions.map((p) => ({ value: p, label: p }))}
           />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:max-w-md">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Platform</label>
-            <select
-              value={filters.platform || ""}
-              onChange={(e) => setFilter("platform", e.target.value)}
-              className="block w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All</option>
-              {PLATFORMS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      ) : salesList.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">No sales recorded yet</p>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Watch</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Platform</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Gross Price</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Fees</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Net Revenue</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
-                  {salesList.map((sale) => (
-                    <motion.tr
-                      key={sale.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="border-t border-border transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        {getWatchLabel(sale)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{sale.platform}</td>
-                      <td className="px-4 py-3 font-mono text-foreground">
-                        {formatCurrency(sale.grossSalePrice)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground">
-                        {formatCurrency(sale.platformFee + sale.shippingInsurance)}
-                      </td>
-                      <td className="px-4 py-3 font-mono font-medium text-primary">
-                        {formatCurrency(
-                          sale.grossSalePrice -
-                            sale.platformFee -
-                            sale.shippingInsurance
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(sale.saleDate)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingSale(sale); setFormOpen(true); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(sale)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
+      {showStrip && (
+        <SummaryStrip
+          filtered={filtered}
+          stale={refetching}
+          items={[
+            { label: "Sales", value: totals && String(totals.count) },
+            { label: "Revenue", value: totals && formatCurrency(totals.revenue) },
+            { label: "Fees & shipping", value: totals && formatCurrency(totals.fees) },
+            {
+              label: "Profit",
+              value: totals && formatCurrency(totals.profit),
+              hint: margin === null ? undefined : `${(margin * 100).toFixed(1)}% margin`,
+              tone: totals && totals.profit < 0 ? "critical" : "default",
+            },
+          ]}
+        />
+      )}
 
+      <div aria-busy={loading} className={cn("space-y-4 transition-opacity duration-150", refetching && "opacity-60")}>
+        <DataTable
+          columns={columns}
+          rows={salesList}
+          getRowId={(sale) => sale.id}
+          loading={!hasLoaded}
+          sort={sort}
+          onSortChange={setSort}
+          caption="Sales"
+          empty={
+            filtered ? (
+              <EmptyState
+                icon={Receipt}
+                title="No sales match these filters"
+                description="Try another search term or platform."
+                action={
+                  <Button variant="secondary" size="sm" onClick={handleClearFilters}>
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={Receipt}
+                title="No sales recorded yet"
+                description="When a watch sells, record the sale here (or from the watch's page) to track revenue, fees and profit."
+                action={
+                  <Button size="sm" onClick={openNew}>
+                    <Plus />
+                    Record sale
+                  </Button>
+                }
+              />
+            )
+          }
+        />
+
+        {salesList.length > 0 && (
           <Pagination
             page={page}
             totalPages={totalPages}
             total={total}
-            pageSize={20}
+            pageSize={PAGE_SIZE}
             onPageChange={setPage}
           />
-        </>
-      )}
+        )}
+      </div>
 
-      <Dialog
+      <RecordSaleSheet
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditingSale(null); }}
-        title={editingSale ? "Edit Sale" : "Record Sale"}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Combobox
-            label="Watch"
-            name="watchId"
-            defaultValue={editingSale?.watchId?.toString()}
-            fetchUrl="/api/watches/search"
-            fetchParams={{ excludeStatus: "Sold" }}
-            placeholder="Search for a watch..."
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Sale Date"
-              name="saleDate"
-              type="date"
-              defaultValue={editingSale?.saleDate}
-              required
-            />
-            <Select
-              label="Platform"
-              name="platform"
-              defaultValue={editingSale?.platform}
-              options={PLATFORMS.map((p) => ({ value: p, label: p }))}
-            />
-          </div>
-          <Input
-            label="Gross Sale Price"
-            name="grossSalePrice"
-            type="number"
-            step="0.01"
-            defaultValue={editingSale?.grossSalePrice?.toString()}
-            required
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Platform Fee"
-              name="platformFee"
-              type="number"
-              step="0.01"
-              defaultValue={editingSale?.platformFee?.toString() || "0"}
-            />
-            <Input
-              label="Shipping & Insurance"
-              name="shippingInsurance"
-              type="number"
-              step="0.01"
-              defaultValue={editingSale?.shippingInsurance?.toString() || "0"}
-            />
-          </div>
-          <Input
-            label="Notes"
-            name="notes"
-            defaultValue={editingSale?.notes || ""}
-            placeholder="Optional notes..."
-          />
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setEditingSale(null); }}>
-              Cancel
-            </Button>
-            <Button type="submit">{editingSale ? "Save" : "Record Sale"}</Button>
-          </div>
-        </form>
-      </Dialog>
+        sale={editingSale}
+        onSaved={() => refresh()}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Sale"
+        title="Delete sale"
         message={`Are you sure you want to delete this sale? The watch status will be reverted to "Listed". This action cannot be undone.`}
         loading={deleting}
       />
-    </motion.div>
+    </div>
   );
 }
 
 export default function SalesPage() {
   return (
-    <Suspense fallback={<div className="flex h-40 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense fallback={<TableSkeleton cols={7} />}>
       <SalesContent />
     </Suspense>
   );

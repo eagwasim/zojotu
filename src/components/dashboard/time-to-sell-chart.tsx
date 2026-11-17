@@ -1,72 +1,58 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { ordinalBlue } from "@/lib/chart-theme";
+import type { Dashboard } from "@/lib/dashboard/compute";
+import { ChartCard } from "./chart-card";
 
-interface TimeDistribution {
-  under7: number;
-  days7to30: number;
-  days30to90: number;
-  over90: number;
-}
-
-export function TimeToSellChart({ data }: { data: TimeDistribution }) {
-  const chartData = [
-    { bucket: "< 7 days", count: data.under7 },
-    { bucket: "7–30 days", count: data.days7to30 },
-    { bucket: "30–90 days", count: data.days30to90 },
-    { bucket: "90+ days", count: data.over90 },
-  ];
-
-  const total = data.under7 + data.days7to30 + data.days30to90 + data.over90;
+/** How fast stock turns: ordered buckets on a single-hue ramp (slower = darker), median in the headline. */
+export function TimeToSellChart({ data }: { data: Dashboard["reselling"]["timeToSell"] }) {
+  const total = data.buckets.reduce((s, b) => s + b.count, 0);
+  const max = Math.max(1, ...data.buckets.map((b) => b.count));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Time to Sell Distribution
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {total === 0 ? (
-          <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
-            No sales data yet
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.01 260)" />
-              <XAxis
-                dataKey="bucket"
-                stroke="oklch(0.6 0.01 260)"
-                fontSize={12}
-              />
-              <YAxis stroke="oklch(0.6 0.01 260)" fontSize={12} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "oklch(0.14 0.01 260)",
-                  border: "1px solid oklch(0.25 0.01 260)",
-                  borderRadius: "8px",
-                  color: "oklch(0.95 0.01 260)",
-                }}
-              />
-              <Bar
-                dataKey="count"
-                fill="oklch(0.65 0.15 250)"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
+    <ChartCard
+      title="Time to sell"
+      description={
+        data.median === null
+          ? "Days from buying a watch to selling it."
+          : `Half of the watches sold within ${Math.round(data.median)} days of buying them.`
+      }
+      table={{
+        columns: [
+          { key: "bucket", label: "Days to sell" },
+          { key: "count", label: "Watches", align: "right" },
+          { key: "share", label: "Share", align: "right" },
+        ],
+        rows: data.buckets.map((b) => ({
+          bucket: b.label,
+          count: b.count,
+          share: total ? `${Math.round((b.count / total) * 100)}%` : "—",
+        })),
+      }}
+    >
+      {total === 0 ? (
+        <p className="rounded-lg border border-dashed border-input/80 px-4 py-8 text-center text-sm text-muted-foreground">
+          No sales in this period.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {data.buckets.map((b, i) => (
+            <li key={b.label} className="grid grid-cols-[6.5rem_1fr_4rem] items-center gap-3 text-sm">
+              <span className="text-muted-foreground">{b.label}</span>
+              <span className="h-2" aria-hidden>
+                <span
+                  className="block h-full rounded-r-[4px]"
+                  style={{ width: `${(b.count / max) * 100}%`, background: ordinalBlue[i] }}
+                />
+              </span>
+              <span className="text-right tabular-nums text-foreground">
+                {b.count}
+                <span className="ml-1 text-xs text-muted-foreground">{Math.round((b.count / total) * 100)}%</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ChartCard>
   );
 }
