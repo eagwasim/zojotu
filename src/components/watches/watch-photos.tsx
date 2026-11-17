@@ -123,7 +123,7 @@ export function WatchPhotos({ watchId, images, primaryImageId, uploadStage, onCh
           >
             <ImagePlus className="size-6" aria-hidden />
             <span className="font-medium text-foreground">Drop photos here or click to choose</span>
-            <span className="text-xs">JPEG, PNG or WebP, up to 15 MB each</span>
+            <span className="text-xs">JPEG, PNG or WebP. Large photos are resized to 1 MB.</span>
           </button>
         ) : (
           <div className={cn("flex flex-col gap-3 rounded-lg", dragging && "outline-2 outline-dashed outline-ring")}>
