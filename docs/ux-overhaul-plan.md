@@ -127,7 +127,7 @@ _Everything else builds on this, so it comes first._
   3. **Dashboard hero** (still): 4 stat tiles plus the "needs attention" list (based on `chart-scrub`).
 - Each must pass `stageshow`'s `--gate` rehearsal. You review them, and we adjust tokens and layout before phases 2–4 commit to them.
 
-### Phase 2: Make data entry fast (3–4 days) 🚧 on `features/fast-data-entry` (stacked on phase 1)
+### Phase 2: Make data entry fast (3–4 days) ✅ on `features/ux-overhaul`
 _Highest day-to-day payoff._
 - **Watch page becomes the workspace** (`inventory/[id]`):
   - Header with hero photo, brand/model, status stepper (Acquired → Modding → Listed → Sold), and live **cost basis / ask / expected profit**.
@@ -155,7 +155,7 @@ _Highest day-to-day payoff._
   - Platform fee %: one `app_settings` row (`platform_fees`, JSON). No new table.
 - **Phase 2 stretch:** paste or drop photos directly on the add-watch form, and duplicate a watch as a template.
 
-### Phase 3: A dashboard that informs (3–4 days)
+### Phase 3: A dashboard that informs (3–4 days) ✅ on `features/ux-overhaul`
 Rebuild `dashboard/page.tsx` around 3 questions, using a pinned period control with comparison to the previous period:
 
 1. **"How am I doing?"** A hero row of 4 `StatTile`s, each with Δ vs the previous period and a 12-month sparkline:

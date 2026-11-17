@@ -1,61 +1,58 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
-import { axisProps, chrome, gridProps, ordinalBlue } from "@/lib/chart-theme";
-import { ChartEmpty, ChartTooltip } from "./chart-tooltip";
+import { ordinalBlue } from "@/lib/chart-theme";
+import type { Dashboard } from "@/lib/dashboard/compute";
+import { ChartCard } from "./chart-card";
 
-interface TimeDistribution {
-  under7: number;
-  days7to30: number;
-  days30to90: number;
-  over90: number;
-}
-
-export function TimeToSellChart({ data }: { data: TimeDistribution }) {
-  // Ordered buckets: a single-hue ramp, slower = darker.
-  const chartData = [
-    { bucket: "Under 7 days", count: data.under7, color: ordinalBlue[0] },
-    { bucket: "7–30 days", count: data.days7to30, color: ordinalBlue[1] },
-    { bucket: "30–90 days", count: data.days30to90, color: ordinalBlue[2] },
-    { bucket: "90+ days", count: data.over90, color: ordinalBlue[3] },
-  ];
-  const total = chartData.reduce((s, d) => s + d.count, 0);
+/** How fast stock turns: ordered buckets on a single-hue ramp (slower = darker), median in the headline. */
+export function TimeToSellChart({ data }: { data: Dashboard["reselling"]["timeToSell"] }) {
+  const total = data.buckets.reduce((s, b) => s + b.count, 0);
+  const max = Math.max(1, ...data.buckets.map((b) => b.count));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Time to sell</CardTitle>
-        <CardDescription>Days from acquisition to sale, for watches sold.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {total === 0 ? (
-          <ChartEmpty height={240}>Sell a watch to see how long stock takes to move.</ChartEmpty>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid {...gridProps} />
-              <XAxis dataKey="bucket" {...axisProps} interval={0} />
-              <YAxis {...axisProps} axisLine={false} allowDecimals={false} width={32} />
-              <Tooltip
-                cursor={{ fill: chrome.grid, fillOpacity: 0.4 }}
-                content={(props) => (
-                  <ChartTooltip
-                    {...(props as object)}
-                    formatValue={(v) => `${v} watch${v === 1 ? "" : "es"} (${Math.round((v / total) * 100)}%)`}
-                  />
-                )}
-              />
-              <Bar isAnimationActive={false} dataKey="count" name="Sold" radius={[4, 4, 0, 0]} maxBarSize={48}>
-                {chartData.map((d) => (
-                  <Cell key={d.bucket} fill={d.color} />
-                ))}
-                <LabelList dataKey="count" position="top" style={{ fill: chrome.ink, fontSize: 12 }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
+    <ChartCard
+      title="Time to sell"
+      description={
+        data.median === null
+          ? "Days from buying a watch to selling it."
+          : `Half of the watches sold within ${Math.round(data.median)} days of buying them.`
+      }
+      table={{
+        columns: [
+          { key: "bucket", label: "Days to sell" },
+          { key: "count", label: "Watches", align: "right" },
+          { key: "share", label: "Share", align: "right" },
+        ],
+        rows: data.buckets.map((b) => ({
+          bucket: b.label,
+          count: b.count,
+          share: total ? `${Math.round((b.count / total) * 100)}%` : "—",
+        })),
+      }}
+    >
+      {total === 0 ? (
+        <p className="rounded-lg border border-dashed border-input/80 px-4 py-8 text-center text-sm text-muted-foreground">
+          No sales in this period.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {data.buckets.map((b, i) => (
+            <li key={b.label} className="grid grid-cols-[6.5rem_1fr_4rem] items-center gap-3 text-sm">
+              <span className="text-muted-foreground">{b.label}</span>
+              <span className="h-2" aria-hidden>
+                <span
+                  className="block h-full rounded-r-[4px]"
+                  style={{ width: `${(b.count / max) * 100}%`, background: ordinalBlue[i] }}
+                />
+              </span>
+              <span className="text-right tabular-nums text-foreground">
+                {b.count}
+                <span className="ml-1 text-xs text-muted-foreground">{Math.round((b.count / total) * 100)}%</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ChartCard>
   );
 }

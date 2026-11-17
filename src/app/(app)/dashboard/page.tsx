@@ -1,222 +1,246 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Calendar } from "lucide-react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Tabs } from "@base-ui/react/tabs";
 import { PageHeader } from "@/components/ui/page-header";
-import { controlClasses } from "@/components/ui/field";
-import { cn } from "@/lib/utils";
-import { KPICards } from "@/components/dashboard/kpi-cards";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SegmentedFilter } from "@/components/ui/filter-bar";
+import { DateInput } from "@/components/ui/date-input";
+import { HeroStats } from "@/components/dashboard/hero-stats";
+import { AttentionList } from "@/components/dashboard/attention-list";
+import { StockPanel } from "@/components/dashboard/stock-panel";
 import { ProfitChart } from "@/components/dashboard/profit-chart";
-import { InventoryStatusChart } from "@/components/dashboard/inventory-status-chart";
-import { SalesVelocityCards } from "@/components/dashboard/sales-velocity-cards";
-import { TimeToSellChart } from "@/components/dashboard/time-to-sell-chart";
-import { StagnatingInventory } from "@/components/dashboard/stagnating-inventory";
+import { PlatformTable } from "@/components/dashboard/platform-table";
 import { BrandProfitChart } from "@/components/dashboard/brand-profit-chart";
-import { BrandDistributionChart } from "@/components/dashboard/brand-distribution-chart";
-import { PlatformChart } from "@/components/dashboard/platform-chart";
-import { MarginInsights } from "@/components/dashboard/margin-insights";
-import { ServiceKPICards } from "@/components/dashboard/service-kpi-cards";
-import { formatCurrency } from "@/lib/utils";
-import type { DashboardKPIs } from "@/lib/queries/dashboard";
+import { TimeToSellChart } from "@/components/dashboard/time-to-sell-chart";
+import { ServicePanel } from "@/components/dashboard/service-panel";
+import { cn, formatCurrency, formatPercentage } from "@/lib/utils";
+import {
+  DEFAULT_PERIOD,
+  PERIODS,
+  comparisonLabel,
+  rangeFor,
+  type PeriodKey,
+} from "@/lib/dashboard/periods";
+import type { Dashboard } from "@/lib/dashboard/compute";
 
-type PresetKey = "7d" | "30d" | "1m" | "1y" | "all" | "custom";
+const fmtDate = (iso: string) =>
+  new Date(iso + "T00:00:00").toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
 
-const PRESETS: { key: PresetKey; label: string }[] = [
-  { key: "all", label: "All time" },
-  { key: "7d", label: "Last 7 days" },
-  { key: "30d", label: "Last 30 days" },
-  { key: "1m", label: "Last month" },
-  { key: "1y", label: "Last year" },
-  { key: "custom", label: "Custom range" },
-];
+const tabClass =
+  "relative h-9 px-1 text-sm text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground data-active:font-medium data-active:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
 
-function getPresetDates(key: PresetKey): { from: string; to: string } | null {
-  if (key === "all" || key === "custom") return null;
-  const to = new Date();
-  const from = new Date();
-  switch (key) {
-    case "7d":
-      from.setDate(from.getDate() - 7);
-      break;
-    case "30d":
-      from.setDate(from.getDate() - 30);
-      break;
-    case "1m":
-      from.setMonth(from.getMonth() - 1);
-      break;
-    case "1y":
-      from.setFullYear(from.getFullYear() - 1);
-      break;
-  }
-  return {
-    from: from.toISOString().split("T")[0],
-    to: to.toISOString().split("T")[0],
-  };
-}
+function DashboardContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
 
-export default function DashboardPage() {
-  const [data, setData] = useState<DashboardKPIs | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activePreset, setActivePreset] = useState<PresetKey>("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const period = (params.get("period") as PeriodKey) || DEFAULT_PERIOD;
+  const customFrom = params.get("from");
+  const customTo = params.get("to");
+  const tab = params.get("tab") === "service" ? "service" : "reselling";
 
-  const fetchDashboard = useCallback((from?: string, to?: string) => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    const qs = params.toString();
-    fetch(`/api/dashboard${qs ? `?${qs}` : ""}`)
-      .then((res) => res.json())
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, []);
+  const range = useMemo(
+    () => rangeFor(period, new Date(), { from: customFrom, to: customTo }),
+    [period, customFrom, customTo]
+  );
+  const rangeKey = range ? `${range.from}:${range.to}` : "all";
+
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const loading = loadedKey !== rangeKey;
 
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    const ctrl = new AbortController();
+    const qs = range ? `?from=${range.from}&to=${range.to}` : "";
+    fetch(`/api/dashboard${qs}`, { signal: ctrl.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Couldn't load the dashboard");
+        return r.json();
+      })
+      .then((d: Dashboard) => {
+        setData(d);
+        setError(null);
+        setLoadedKey(rangeKey);
+      })
+      .catch((e) => {
+        if (ctrl.signal.aborted) return;
+        setError(e instanceof Error ? e.message : "Couldn't load the dashboard");
+        setLoadedKey(rangeKey);
+      });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeKey]);
 
-  const handlePresetChange = (key: PresetKey) => {
-    setActivePreset(key);
-    if (key === "custom") return;
-    const dates = getPresetDates(key);
-    if (dates) {
-      setFromDate(dates.from);
-      setToDate(dates.to);
-      fetchDashboard(dates.from, dates.to);
-    } else {
-      setFromDate("");
-      setToDate("");
-      fetchDashboard();
+  const setParams = (next: Record<string, string | null>) => {
+    const sp = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(next)) {
+      if (v === null) sp.delete(k);
+      else sp.set(k, v);
     }
+    router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
   };
 
-  const handleCustomDate = (from: string, to: string) => {
-    setFromDate(from);
-    setToDate(to);
-    if (from || to) {
-      fetchDashboard(from, to);
-    } else {
-      fetchDashboard();
-    }
-  };
-
-  if (loading && !data) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!data) return null;
+  const comparison = comparisonLabel(range);
+  const rangeText = range ? `${fmtDate(range.from)} – ${fmtDate(range.to)}` : "All time";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Your watch business at a glance"
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Calendar aria-hidden className="size-4 text-muted-foreground" />
-              <select
-                aria-label="Date range"
-                value={activePreset}
-                onChange={(e) => handlePresetChange(e.target.value as PresetKey)}
-                className={cn(controlClasses, "h-9 w-auto")}
-              >
-                {PRESETS.map((preset) => (
-                  <option key={preset.key} value={preset.key}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {activePreset === "custom" && (
-              <div className="flex items-center gap-2">
-                <label htmlFor="dashboard-from" className="text-sm text-muted-foreground">From</label>
-                <input
-                  id="dashboard-from"
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => handleCustomDate(e.target.value, toDate)}
-                  className={cn(controlClasses, "h-9 w-auto")}
-                />
-                <label htmlFor="dashboard-to" className="text-sm text-muted-foreground">To</label>
-                <input
-                  id="dashboard-to"
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => handleCustomDate(fromDate, e.target.value)}
-                  className={cn(controlClasses, "h-9 w-auto")}
-                />
-              </div>
-            )}
-          </div>
-        }
+        description={range ? `${rangeText}, compared with the ${comparison?.replace("vs ", "")}.` : "All time."}
       />
 
-      {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+      {/* One row of filters above everything they scope. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <SegmentedFilter
+          label="Period"
+          value={period}
+          onChange={(v) => setParams({ period: v, from: null, to: null })}
+          options={[...PERIODS.map((p) => ({ value: p.key, label: p.label })), { value: "custom", label: "Custom" }]}
+        />
+        {period === "custom" && (
+          <div className="flex items-end gap-2">
+            <DateInput
+              label="From"
+              quickPicks={false}
+              value={customFrom ?? ""}
+              onValueChange={(v) => setParams({ from: v || null })}
+              className="h-8 w-40"
+            />
+            <DateInput
+              label="To"
+              quickPicks={false}
+              value={customTo ?? ""}
+              onValueChange={(v) => setParams({ to: v || null })}
+              className="h-8 w-40"
+            />
+          </div>
+        )}
+      </div>
+
+      {error && !data && (
+        <p role="alert" className="rounded-lg bg-critical-wash px-4 py-3 text-sm text-critical-ink">
+          {error}
+        </p>
+      )}
+
+      {!data ? (
+        !error && <DashboardSkeleton />
       ) : (
-        <>
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Combined totals</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-card p-4 shadow-card">
-            <p className="text-xs font-medium text-muted-foreground">Combined revenue</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{formatCurrency(data.combinedRevenue)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Watch sales + service income</p>
+        <Tabs.Root value={tab} onValueChange={(v) => setParams({ tab: v === "service" ? "service" : null })}>
+          <Tabs.List className="relative mb-6 flex gap-6 border-b border-border">
+            <Tabs.Tab value="reselling" className={tabClass}>
+              Reselling
+            </Tabs.Tab>
+            <Tabs.Tab value="service" className={tabClass}>
+              Service
+              {data.service.pending > 0 && (
+                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-warning-wash px-1.5 text-[11px] font-semibold tabular-nums text-warning-ink">
+                  {data.service.pending}
+                  <span className="sr-only"> waiting</span>
+                </span>
+              )}
+            </Tabs.Tab>
+            <Tabs.Indicator className="absolute bottom-[-1px] left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-foreground transition-[translate,width] duration-200 ease-out" />
+          </Tabs.List>
+
+          {/* Refetch keeps the frame: old numbers stay, dimmed, until the new ones arrive. */}
+          <div
+            aria-busy={loading}
+            className={cn("transition-opacity duration-150", loading && "pointer-events-none opacity-55")}
+          >
+            <Tabs.Panel value="reselling" className="flex flex-col gap-6 outline-none">
+              <HeroStats data={data} comparison={comparison} />
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                <StockPanel stock={data.stock} className="lg:col-span-3" />
+                <AttentionList items={data.actions} className="lg:col-span-2" />
+              </div>
+
+              <ProfitChart data={data.reselling.monthly} />
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                <PlatformTable rows={data.reselling.platforms} className="lg:col-span-3" />
+                <div className="lg:col-span-2">
+                  <TimeToSellChart data={data.reselling.timeToSell} />
+                </div>
+              </div>
+
+              <BrandProfitChart data={data.reselling.brands} />
+
+              <MoreMetrics data={data} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="service" className="outline-none">
+              <ServicePanel data={data} comparison={comparison} />
+            </Tabs.Panel>
           </div>
-          <div className="rounded-xl bg-card p-4 shadow-card">
-            <p className="text-xs font-medium text-muted-foreground">Combined profit</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{formatCurrency(data.combinedProfit)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Net profit + service profit</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Sales revenue</h2>
-        <KPICards data={data} />
-
-        <div className="grid grid-cols-1 gap-6">
-          <ProfitChart data={data.monthlyProfits} />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Service revenue</h2>
-        <ServiceKPICards data={data.serviceKPIs} />
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Sales velocity</h2>
-        <SalesVelocityCards data={data.salesVelocity} />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <TimeToSellChart data={data.salesVelocity.timeToSellDistribution} />
-          <StagnatingInventory data={data.salesVelocity.stagnatingInventory} />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Brand & platform analysis</h2>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <BrandProfitChart data={data.brandAnalytics.mostProfitableBrands} />
-          <PlatformChart data={data.platformPerformance} />
-        </div>
-        <MarginInsights data={data.platformPerformance} />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <BrandDistributionChart data={data.brandAnalytics.brandInventoryDistribution} />
-          <InventoryStatusChart data={data.watchesByStatus} />
-        </div>
-      </div>
-        </>
+        </Tabs.Root>
       )}
     </div>
+  );
+}
+
+/** Secondary numbers, one click away instead of competing with the headline. */
+function MoreMetrics({ data }: { data: Dashboard }) {
+  const c = data.reselling.current;
+  const rows: [string, string, string][] = [
+    ["Return on cost", c.roi === null ? "—" : formatPercentage(c.roi), "Profit after fees ÷ purchase cost and parts of the watches sold."],
+    ["Average days to sell", c.avgDaysToSell === null ? "—" : `${Math.round(c.avgDaysToSell)} days`, "From acquisition date to sale date."],
+    ["Fees & shipping", formatCurrency(c.fees), c.revenue ? `${formatPercentage(c.fees / c.revenue)} of revenue.` : ""],
+    ["Cost of watches sold", formatCurrency(c.cogs), "Purchase cost plus parts."],
+    ["Operating expenses", formatCurrency(c.opex), "Tools, supplies, software, shipping, marketing."],
+    ["Profit before expenses", formatCurrency(c.grossProfit), "Sale price − fees − shipping − cost."],
+    ["Reselling + service revenue", formatCurrency(data.combined.current.revenue), ""],
+    ["Reselling + service profit", formatCurrency(data.combined.current.netProfit), "Net reselling profit plus service profit."],
+  ];
+  return (
+    <details className="group rounded-xl bg-card shadow-card">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+        More numbers
+        <span className="text-xs font-normal text-muted-foreground group-open:hidden">Show</span>
+        <span className="hidden text-xs font-normal text-muted-foreground group-open:inline">Hide</span>
+      </summary>
+      <dl className="grid grid-cols-1 gap-x-8 border-t border-border px-6 py-4 sm:grid-cols-2">
+        {rows.map(([k, v, hint]) => (
+          <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-2.5 last:border-0 sm:[&:nth-last-child(2)]:border-0">
+            <dt className="text-sm text-muted-foreground">
+              {k}
+              {hint && <span className="block text-xs text-muted-foreground/80">{hint}</span>}
+            </dt>
+            <dd className="text-sm font-medium tabular-nums text-foreground">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div role="status" aria-label="Loading dashboard" className="flex flex-col gap-6">
+      <Skeleton className="h-9 w-64" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-32 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <Skeleton className="h-72 rounded-xl lg:col-span-3" />
+        <Skeleton className="h-72 rounded-xl lg:col-span-2" />
+      </div>
+      <Skeleton className="h-80 rounded-xl" />
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -4,8 +4,12 @@ import { cn } from "@/lib/utils";
 interface StatTileProps {
   label: string;
   value: string;
-  /** Change vs comparison period, as a fraction (0.12 = +12%). */
+  /** Change vs comparison period, as a fraction (0.12 = +12%), or points if `deltaUnit="points"`. */
   delta?: number | null;
+  /** "relative" (default): ±12.0%. "points": for rates such as margin, ±3.1 pts. */
+  deltaUnit?: "relative" | "points";
+  /** Shown instead of a delta when there is nothing to compare against, e.g. "No sales last period". */
+  deltaFallback?: string;
   /** Whether an increase is good (revenue) or bad (days to sell, expenses). */
   increaseIs?: "good" | "bad";
   /** e.g. "vs previous 30 days" */
@@ -44,6 +48,8 @@ export function StatTile({
   label,
   value,
   delta,
+  deltaUnit = "relative",
+  deltaFallback,
   increaseIs = "good",
   comparisonLabel,
   definition,
@@ -84,6 +90,7 @@ export function StatTile({
         </p>
         {trend && <Sparkline values={trend} />}
       </div>
+      {!hasDelta && deltaFallback && <p className="text-xs text-muted-foreground">{deltaFallback}</p>}
       {hasDelta && (
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <span
@@ -95,7 +102,9 @@ export function StatTile({
             )}
           >
             <DeltaIcon className="size-3.5" aria-hidden />
-            {flat ? "0%" : `${up ? "+" : "−"}${Math.abs(delta! * 100).toFixed(1)}%`}
+            {flat
+              ? deltaUnit === "points" ? "0 pts" : "0%"
+              : `${up ? "+" : "−"}${Math.abs(delta! * 100).toFixed(1)}${deltaUnit === "points" ? " pts" : "%"}`}
           </span>
           {comparisonLabel && <span>{comparisonLabel}</span>}
         </p>
