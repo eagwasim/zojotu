@@ -1,212 +1,297 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Watch, ArrowRight, CheckCircle2, Heart, MessageSquare } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { ArrowRight, Heart, MessageSquare, ShieldAlert, Wallet } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BrandMark, Container, drawnUnderline } from "@/components/site/brand";
+import { Reveal } from "@/components/site/reveal";
+import { photos, PHOTO_CREDIT } from "@/components/site/photos";
+import styles from "@/components/site/site.module.css";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface CatalogItem {
   id: number;
   name: string;
-  description?: string;
+  description?: string | null;
   estimatedPrice: number;
   category: string;
 }
 
+const STEPS = [
+  { title: "Submit a request", desc: "Create an account, tell me about your watch and what's wrong." },
+  { title: "I'll review it", desc: "I'll let you know if it's something I can help with. If not, I'll say so." },
+  { title: "Ship your watch", desc: "If accepted, send it to me via tracked delivery. I'll confirm when it arrives." },
+  { title: "Diagnosis & quote", desc: "I'll take a look, tell you what I find, and give you a price before doing any work." },
+  { title: "Service & return", desc: "Once you approve, I'll do the work and ship it back to you." },
+];
+
+const EXPECT = [
+  {
+    icon: Heart,
+    title: "A hobby project",
+    body: "I'm self-taught and still learning. I'll always be upfront about what I can and can't do.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Communication first",
+    body: "I'll diagnose your watch and give you an honest assessment before any work begins. No surprises.",
+  },
+  {
+    icon: Wallet,
+    title: "Cheap rates",
+    body: "I charge for parts and a small service fee, way less than official service centres. This isn't a business trying to maximise profit; it's a passion that helps people keep their watches running.",
+  },
+];
+
 export default function LandingPage() {
-  const [services, setServices] = useState<CatalogItem[]>([]);
+  const [services, setServices] = useState<CatalogItem[] | null>(null);
 
   useEffect(() => {
     fetch("/api/service-catalog/public")
-      .then((r) => r.json())
-      .then(setServices)
-      .catch(() => {});
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setServices(Array.isArray(d) ? d : []))
+      .catch(() => setServices([]));
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <Watch className="h-6 w-6 text-foreground" />
-            <span className="text-xl font-bold text-foreground">Zojotu</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className={buttonClasses({ variant: "ghost" })}
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/register"
-              className={buttonClasses()}
-            >
-              Get started
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-dvh bg-background">
+      <a
+        href="#main"
+        className="sr-only z-[100] rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+      >
+        Skip to content
+      </a>
 
-      {/* Hero */}
-      <section className="relative flex min-h-[80vh] items-center justify-center overflow-hidden px-6 pt-16">
-        <div className="relative z-10 mx-auto max-w-2xl text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
-            <Watch className="h-8 w-8 text-foreground" />
-          </div>
-          <h1 className="font-display text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
-            Affordable watch servicing
-          </h1>
-          <p className="mx-auto mt-6 max-w-lg text-lg text-muted-foreground">
-            I'm a hobbyist watchmaker based in the Netherlands, helping people maintain watches that might be too expensive to service through official channels. No fancy workshop - just careful hands, cheap rates, and a genuine love for horology.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link
-              href="/register"
-              className={buttonClasses({ size: "lg" })}
-            >
-              Request a service
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <a
-              href="#how-it-works"
-              className={buttonClasses({ variant: "secondary", size: "lg" })}
-            >
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
+        <Container className="flex h-16 items-center justify-between gap-4">
+          <BrandMark />
+          <nav aria-label="Main" className="flex items-center gap-1 sm:gap-2">
+            <a href="#how-it-works" className={cn("hidden px-3 py-2 text-sm text-muted-foreground hover:text-foreground md:inline", drawnUnderline)}>
               How it works
             </a>
-          </div>
-        </div>
-      </section>
+            <a href="#services" className={cn("hidden px-3 py-2 text-sm text-muted-foreground hover:text-foreground md:inline", drawnUnderline)}>
+              Services
+            </a>
+            <Link href="/login" className={buttonClasses({ variant: "ghost", className: "min-h-11 sm:min-h-9" })}>
+              Sign in
+            </Link>
+            <Link href="/register" className={buttonClasses({ className: "hidden min-h-11 sm:inline-flex sm:min-h-9" })}>
+              Request a service
+            </Link>
+          </nav>
+        </Container>
+      </header>
 
-      {/* Honest pitch */}
-      <section className="border-t border-border py-20 px-6">
-        <div className="mx-auto max-w-2xl">
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">What to expect</h2>
-            <div className="space-y-4 text-sm text-muted-foreground">
-              <div className="flex gap-3">
-                <Heart className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <p>This is a <strong className="text-foreground">hobby project</strong>. I'm self-taught and still learning. I'll always be upfront about what I can and can't do.</p>
+      <main id="main">
+        {/* Hero */}
+        <section className="py-12 sm:py-20 lg:py-24">
+          <Container className="grid items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+            <div className={cn("flex flex-col gap-6", styles.enter)}>
+              <p className="text-sm font-medium text-muted-foreground">Watch servicing · the Netherlands</p>
+              <h1 className="font-display text-[2.6rem] font-medium leading-[1.05] tracking-tight text-foreground sm:text-6xl">
+                Affordable watch servicing, done carefully by hand.
+              </h1>
+              <p className="max-w-xl text-lg leading-relaxed text-muted-foreground">
+                I&rsquo;m a hobbyist watchmaker helping people maintain watches that might be too expensive to
+                service through official channels. No fancy workshop, just careful hands, cheap rates and a
+                genuine love for horology.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link href="/register" className={buttonClasses({ size: "lg", className: "min-h-12 px-6" })}>
+                  Request a service
+                  <ArrowRight />
+                </Link>
+                <a href="#how-it-works" className={buttonClasses({ variant: "secondary", size: "lg", className: "min-h-12 px-6" })}>
+                  How it works
+                </a>
               </div>
-              <div className="flex gap-3">
-                <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <p><strong className="text-foreground">Communication first.</strong> I'll diagnose your watch and give you an honest assessment before any work begins. No surprises.</p>
-              </div>
-              <div className="flex gap-3">
-                <Watch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <p><strong className="text-foreground">Cheap rates.</strong> I charge for parts and a small service fee - way less than official service centers. This isn't a business trying to maximize profit, it's a passion that helps people keep their watches running.</p>
-              </div>
-            </div>
-            <div className="rounded-lg bg-secondary p-4">
               <p className="text-sm text-muted-foreground">
-                <strong className="text-foreground">A note on risk:</strong> I don't carry insurance on pieces in my care. I handle every watch with extreme caution, but if this concerns you, a professional service center may be a better fit. I'm happy to recommend one.
+                Free to ask. You get an honest assessment and a price before any work starts.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* How It Works */}
-      <section id="how-it-works" className="border-t border-border bg-muted/30 py-20 px-6">
-        <div className="mx-auto max-w-2xl">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">How it works</h2>
-            <div className="mt-8 space-y-6">
-              {[
-                { n: "1", title: "Submit a request", desc: "Create an account, tell me about your watch and what's wrong." },
-                { n: "2", title: "I'll review it", desc: "I'll let you know if it's something I can help with. If not, I'll say so." },
-                { n: "3", title: "Ship your watch", desc: "If accepted, send it to me via tracked delivery. I'll confirm when it arrives." },
-                { n: "4", title: "Diagnosis & quote", desc: "I'll take a look, tell you what I find, and give you a price before doing any work." },
-                { n: "5", title: "Service & return", desc: "Once you approve, I'll do the work and ship it back to you." },
-              ].map((step) => (
-                <div key={step.n} className="flex gap-4">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold tabular-nums text-primary-foreground">
-                    {step.n}
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{step.title}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{step.desc}</p>
-                  </div>
-                </div>
-              ))}
+            <div className={cn("relative overflow-hidden rounded-2xl shadow-raised", styles.enterPhoto)}>
+              <Image
+                src={photos.bench.src}
+                alt={photos.bench.alt}
+                priority
+                placeholder="blur"
+                sizes="(min-width: 1024px) 560px, 100vw"
+                className="aspect-[4/5] w-full object-cover sm:aspect-[5/4] lg:aspect-[4/5]"
+              />
             </div>
-          </div>
-        </div>
-      </section>
+          </Container>
+        </section>
 
-      {/* Services */}
-      {services.length > 0 && (
-        <section id="services" className="border-t border-border py-20 px-6">
-          <div className="mx-auto max-w-2xl">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-foreground">What I can help with</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Prices are estimates - I'll always confirm the exact cost after diagnosis.
-              </p>
-              <div className="mt-6 space-y-3">
-                {services.map((service) => (
-                  <div
-                    key={service.id}
-                    className="flex items-center justify-between rounded-lg bg-card px-4 py-3 shadow-card"
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 aria-hidden className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">{service.name}</span>
-                    </div>
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      ~{formatCurrency(service.estimatedPrice)}
+        {/* What to expect */}
+        <section aria-labelledby="expect" className="border-t border-border py-16 sm:py-24">
+          <Container className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+            <Reveal className="order-last overflow-hidden rounded-2xl lg:order-first">
+              <Image
+                src={photos.hands.src}
+                alt={photos.hands.alt}
+                placeholder="blur"
+                sizes="(min-width: 1024px) 520px, 100vw"
+                className={cn("aspect-[4/3] w-full object-cover lg:aspect-auto lg:h-full", styles.develop)}
+              />
+            </Reveal>
+            <div className="flex flex-col gap-8">
+              <h2 id="expect" className="font-display text-4xl font-medium tracking-tight text-foreground">
+                What to expect
+              </h2>
+              <ul className="flex flex-col gap-6">
+                {EXPECT.map((e) => (
+                  <li key={e.title} className="flex gap-4">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
+                      <e.icon className="size-4" aria-hidden strokeWidth={1.75} />
                     </span>
-                  </div>
+                    <span>
+                      <span className="block font-medium text-foreground">{e.title}</span>
+                      <span className="mt-1 block text-muted-foreground">{e.body}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-4 rounded-xl bg-warning-wash p-5">
+                <ShieldAlert className="mt-0.5 size-5 shrink-0 text-warning-ink" aria-hidden />
+                <p className="text-sm leading-relaxed text-foreground">
+                  <strong className="font-semibold">A note on risk:</strong>{" "}I don&rsquo;t carry insurance on pieces
+                  in my care. I handle every watch with extreme caution, but if this concerns you, a professional
+                  service centre may be a better fit. I&rsquo;m happy to recommend one.
+                </p>
+              </div>
+            </div>
+          </Container>
+        </section>
+
+        {/* How it works */}
+        <section id="how-it-works" aria-labelledby="how" className="scroll-mt-16 border-t border-border bg-card py-16 sm:py-24">
+          <Container className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+            <div className="flex flex-col gap-8">
+              <h2 id="how" className="font-display text-4xl font-medium tracking-tight text-foreground">
+                How it works
+              </h2>
+              <Reveal threshold={0.25}>
+                <ol className="relative flex flex-col gap-7">
+                  <span aria-hidden className={cn("absolute bottom-4 left-[15px] top-4 w-px bg-border", styles.drawLine)} />
+                  {STEPS.map((s, i) => (
+                    <li key={s.title} className={cn("relative flex gap-5", styles.step)}>
+                      <span className="relative z-[1] flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-semibold tabular-nums text-background">
+                        {i + 1}
+                      </span>
+                      <span>
+                        <span className="block font-medium text-foreground">{s.title}</span>
+                        <span className="mt-1 block text-muted-foreground">{s.desc}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </Reveal>
+            </div>
+            <div className="hidden overflow-hidden rounded-2xl lg:block">
+              <Image
+                src={photos.holder.src}
+                alt={photos.holder.alt}
+                placeholder="blur"
+                sizes="520px"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </Container>
+        </section>
+
+        {/* Services: live from the catalogue */}
+        <section id="services" aria-labelledby="services-title" className="scroll-mt-16 border-t border-border py-16 sm:py-24">
+          <Container className="flex flex-col gap-8">
+            <div className="flex flex-col gap-3">
+              <h2 id="services-title" className="font-display text-4xl font-medium tracking-tight text-foreground">
+                What I can help with
+              </h2>
+              <p className="max-w-xl text-muted-foreground">
+                Prices are estimates. I&rsquo;ll always confirm the exact cost after diagnosis.
+              </p>
+            </div>
+            {services === null ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-28 rounded-xl" />
                 ))}
               </div>
-              <p className="mt-4 text-xs text-muted-foreground">
-                Have something else in mind? Just describe it when you submit a request.
+            ) : services.length === 0 ? (
+              <p className="rounded-xl bg-card p-6 text-muted-foreground shadow-card">
+                Describe what your watch needs when you submit a request, and I&rsquo;ll tell you honestly whether I
+                can help.
               </p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* CTA */}
-      <section className="border-t border-border bg-muted/30 py-20 px-6">
-        <div className="mx-auto max-w-xl text-center">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">Got a watch that needs attention?</h2>
-            <p className="mt-3 text-muted-foreground">
-              Create a free account and submit a request. No obligations - I'll tell you honestly if I can help.
+            ) : (
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {services.map((s) => (
+                  <li key={s.id} className="flex flex-col gap-2 rounded-xl bg-card p-5 shadow-card">
+                    <span className="flex items-baseline justify-between gap-4">
+                      <span className="font-medium text-foreground">{s.name}</span>
+                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                        from ~{formatCurrency(s.estimatedPrice)}
+                      </span>
+                    </span>
+                    {s.description && <span className="text-sm text-muted-foreground">{s.description}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Have something else in mind? Just describe it when you submit a request.
             </p>
-            <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link
-                href="/register"
-                className={buttonClasses({ size: "lg" })}
-              >
-                Create account
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/login"
-                className="text-sm font-medium text-link hover:underline"
-              >
-                Already have an account? Sign in
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+          </Container>
+        </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-10 px-6">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2">
-            <Watch className="h-5 w-5 text-foreground" />
-            <span className="font-semibold text-foreground">Zojotu</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            A hobby watchmaker based in the Netherlands, helping people keep their watches running.
-          </p>
-        </div>
+        {/* Closing call to action */}
+        <section className="pb-16 sm:pb-24">
+          <Container>
+            <div className="relative overflow-hidden rounded-2xl bg-foreground text-background">
+              <Image
+                src={photos.movement.src}
+                alt=""
+                placeholder="blur"
+                sizes="(min-width: 1152px) 1088px, 100vw"
+                className="absolute inset-0 h-full w-full object-cover opacity-30"
+              />
+              <div className="relative flex flex-col items-start gap-5 px-6 py-14 sm:px-12 sm:py-20">
+                <h2 className="max-w-xl font-display text-4xl font-medium tracking-tight">
+                  Got a watch that needs attention?
+                </h2>
+                <p className="max-w-lg text-background/80">
+                  Create a free account and submit a request. No obligations. I&rsquo;ll tell you honestly if I can
+                  help.
+                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Link
+                    href="/register"
+                    className={buttonClasses({
+                      size: "lg",
+                      className: "min-h-12 bg-background px-6 text-foreground hover:bg-background/90",
+                    })}
+                  >
+                    Request a service
+                    <ArrowRight />
+                  </Link>
+                  <Link href="/login" className={cn("min-h-11 px-1 py-3 text-sm text-background/85 hover:text-background", drawnUnderline)}>
+                    Already have an account? Sign in
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Container>
+        </section>
+      </main>
+
+      <footer className="border-t border-border py-10">
+        <Container className="flex flex-col gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <BrandMark />
+          <p>Hobbyist watch servicing in the Netherlands.</p>
+          <p className="text-xs">{PHOTO_CREDIT}</p>
+        </Container>
       </footer>
     </div>
   );

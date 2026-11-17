@@ -38,8 +38,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-8 rounded-xl bg-card p-8 shadow-raised">
+    <div className="flex w-full justify-center">
+      <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
             <Watch className="h-6 w-6 text-foreground" />

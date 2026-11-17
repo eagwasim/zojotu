@@ -137,8 +137,8 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-8 rounded-xl bg-card p-8 shadow-raised">
+    <div className="flex w-full justify-center">
+      <div className="w-full max-w-sm space-y-8">
         <Suspense
           fallback={
             <div className="flex justify-center py-8">

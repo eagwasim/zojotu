@@ -10,6 +10,7 @@ import {
   Truck,
   Package,
   Wrench,
+  Search,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ const STATUS_STEPS = [
   { key: "Accepted", label: "Accepted", icon: CheckCircle2 },
   { key: "Shipped", label: "Shipped", icon: Truck },
   { key: "Received", label: "Received", icon: Package },
+  { key: "Diagnosed", label: "Diagnosed", icon: Search },
   { key: "In Progress", label: "In progress", icon: Wrench },
   { key: "Completed", label: "Completed", icon: CheckCircle2 },
   { key: "Collected", label: "Collected", icon: CheckCircle2 },
