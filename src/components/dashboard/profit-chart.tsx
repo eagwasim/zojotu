@@ -17,6 +17,7 @@ function MonthTooltip({ active, payload }: { active?: boolean; payload?: { paylo
     ["Fees & shipping", -m.fees],
     ["Cost of watches sold", -m.cogs],
     ["Operating expenses", -m.opex],
+    ...(m.writeOffs ? [["Written off", -m.writeOffs] as [string, number]] : []),
   ];
   return (
     <div className="min-w-52 rounded-lg bg-popover px-3 py-2.5 text-xs shadow-raised">
@@ -42,24 +43,24 @@ function MonthTooltip({ active, payload }: { active?: boolean; payload?: { paylo
 
 /** Net profit per month. One series; loss months are marked. Revenue and costs live in the tooltip and table. */
 export function ProfitChart({ data }: { data: MonthPoint[] }) {
-  const hasData = data.some((m) => m.revenue || m.opex);
+  const hasData = data.some((m) => m.revenue || m.opex || m.writeOffs);
   return (
     <ChartCard
       title="Net profit by month"
-      description="Watch sales after fees, shipping, cost and operating expenses."
+      description="Watch sales after fees, shipping, cost, operating expenses and write-offs."
       table={{
         columns: [
           { key: "month", label: "Month" },
           { key: "sold", label: "Sold", align: "right" },
           { key: "revenue", label: "Revenue", align: "right" },
-          { key: "costs", label: "Fees, cost & expenses", align: "right" },
+          { key: "costs", label: "Fees, cost, expenses & write-offs", align: "right" },
           { key: "net", label: "Net profit", align: "right" },
         ],
         rows: data.map((m) => ({
           month: formatMonthLabel(m.month),
           sold: m.sold,
           revenue: formatCurrency(m.revenue),
-          costs: formatCurrency(m.fees + m.cogs + m.opex),
+          costs: formatCurrency(m.fees + m.cogs + m.opex + m.writeOffs),
           net: formatCurrency(m.netProfit),
         })),
       }}

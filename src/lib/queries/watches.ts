@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { watches, parts, sales } from "../db/schema";
-import { eq, sql, desc, and, or, ne, inArray, asc } from "drizzle-orm";
+import { eq, sql, desc, and, or, inArray, notInArray, asc } from "drizzle-orm";
 import { watchImages } from "../db/schema";
 import type { WatchInput, WatchUpdate, SETTABLE_STATUSES } from "../validators/watch";
 import { paginatedResult } from "./pagination";
@@ -16,11 +16,17 @@ function today() {
 /** Moving to "Listed" stamps the listed date, but never overwrites one that is already set. */
 const keepOrStampListedDate = () => sql`coalesce(${watches.listedDate}, ${today()})`;
 
-function withListingDefaults<T extends WatchUpdate>(data: T) {
-  if (data.status === "Listed" && data.listedDate === undefined) {
-    return { ...data, listedDate: keepOrStampListedDate() };
-  }
-  return data;
+/** Writing off stamps today unless a date is given; any other stage clears the write-off. */
+const keepOrStampWrittenOffDate = () => sql`coalesce(${watches.writtenOffDate}, ${today()})`;
+const clearWriteOff = { writtenOffDate: null, writtenOffReason: null };
+
+function withStatusDefaults(data: WatchUpdate) {
+  return {
+    ...data,
+    ...(data.status === "Listed" && data.listedDate === undefined ? { listedDate: keepOrStampListedDate() } : {}),
+    ...(data.status === "Written off" && !data.writtenOffDate ? { writtenOffDate: keepOrStampWrittenOffDate() } : {}),
+    ...(data.status && data.status !== "Written off" ? clearWriteOff : {}),
+  };
 }
 
 export async function getAllWatches(status?: string) {
@@ -219,8 +225,9 @@ export async function getWatchWithEconomics(id: number) {
 }
 
 export async function createWatch(data: WatchInput) {
-  const values =
-    data.status === "Listed" && !data.listedDate ? { ...data, listedDate: today() } : data;
+  let values = data;
+  if (data.status === "Listed" && !data.listedDate) values = { ...values, listedDate: today() };
+  if (data.status === "Written off" && !data.writtenOffDate) values = { ...values, writtenOffDate: today() };
   const [watch] = await db.insert(watches).values(values).returning();
   return watch;
 }
@@ -228,19 +235,22 @@ export async function createWatch(data: WatchInput) {
 export async function updateWatch(id: number, data: WatchUpdate) {
   const [watch] = await db
     .update(watches)
-    .set({ ...withListingDefaults(data), updatedAt: dbNow() })
+    .set({ ...withStatusDefaults(data), updatedAt: dbNow() })
     .where(eq(watches.id, id))
     .returning();
   return watch;
 }
 
-/** Change status for many watches at once. Never used for "Sold" (that comes from a sale). */
+/**
+ * Change status for many watches at once. Never used for "Sold" (that comes from a sale).
+ * Sold and written-off watches are skipped, so a bulk change can't silently undo a write-off.
+ */
 export async function bulkUpdateStatus(ids: number[], status: SettableStatus) {
   const listing = status === "Listed" ? { listedDate: keepOrStampListedDate() } : {};
   const updated = await db
     .update(watches)
     .set({ status, ...listing, updatedAt: dbNow() })
-    .where(and(inArray(watches.id, ids), ne(watches.status, "Sold")))
+    .where(and(inArray(watches.id, ids), notInArray(watches.status, ["Sold", "Written off"])))
     .returning({ id: watches.id });
   return updated.map((r: { id: number }) => r.id);
 }

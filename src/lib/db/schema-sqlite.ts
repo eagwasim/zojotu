@@ -19,6 +19,9 @@ export const watches = sqliteTable("watches", {
   serial: text("serial"),
   condition: text("condition"),
   primaryImageId: integer("primary_image_id"),
+  // Write-off (added 2026-11, see docs/db-changes.md). Set when status is "Written off".
+  writtenOffDate: text("written_off_date"),
+  writtenOffReason: text("written_off_reason"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").default(sql`(datetime('now'))`),
 });

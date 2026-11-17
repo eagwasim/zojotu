@@ -26,7 +26,7 @@ import { usePaginatedFetch, type SortParam } from "@/hooks/use-paginated-fetch";
 import { ATTENTION, daysBetween } from "@/lib/dashboard/compute";
 import { isoDate } from "@/components/ui/date-input";
 import { apiDelete, apiPost, apiPut, apiRequest } from "@/lib/api-client";
-import { WATCH_STATUSES } from "@/lib/validators/watch";
+import { WATCH_STATUSES, isClosedStatus } from "@/lib/validators/watch";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const errorMessage = (e: unknown, fallback: string) =>
@@ -43,7 +43,7 @@ type ListWatch = WatchRecord & { costBasis: number; partsCost: number; coverImag
 
 /** "In stock for N days" or "listed for N days"; flagged at the same thresholds as the dashboard. */
 function ageOf(w: ListWatch, status: string) {
-  if (status === "Sold") return null;
+  if (isClosedStatus(status)) return null;
   const today = isoDate();
   if (status === "Listed" && w.listedDate) {
     const d = daysBetween(w.listedDate, today);
@@ -265,7 +265,7 @@ function InventoryContent() {
       const msg =
         `Moved ${plural(updated)} to ${status}` +
         (res.skipped > 0
-          ? `. Skipped ${res.skipped} sold watch${res.skipped === 1 ? "" : "es"}.`
+          ? `. Skipped ${res.skipped} sold or written-off watch${res.skipped === 1 ? "" : "es"}.`
           : "");
       toast(msg, updated > 0 ? "success" : "info");
       setSelected(new Set());
@@ -496,7 +496,7 @@ function InventoryContent() {
                       const label = watchLabel(watch);
                       const status = statusOf(watch);
                       const isSelected = selected.has(watch.id);
-                      const isSold = status === "Sold";
+                      const isClosed = isClosedStatus(status);
                       const age = ageOf(watch, status);
                       return (
                         <tr
@@ -533,7 +533,7 @@ function InventoryContent() {
                             </Link>
                           </td>
                           <td className="px-4 py-3" onClick={stop}>
-                            {isSold ? (
+                            {isClosed ? (
                               <StatusBadge status={status} />
                             ) : (
                               <StageMenu status={status} label={label} onChange={(s) => changeStage(watch, s)} />
@@ -576,7 +576,7 @@ function InventoryContent() {
                                     setFormOpen(true);
                                   },
                                 },
-                                ...(isSold
+                                ...(isClosed
                                   ? []
                                   : [{ label: "Record sale", icon: Receipt, onSelect: () => setSaleWatch(watch) }]),
                                 { label: "Delete", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(watch) },

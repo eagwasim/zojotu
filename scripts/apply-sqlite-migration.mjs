@@ -14,6 +14,8 @@ const wanted = {
     serial: "text",
     condition: "text",
     primary_image_id: "integer",
+    written_off_date: "text",
+    written_off_reason: "text",
   },
   // Added by the payments work (a883acc); older local files may lack it.
   service_jobs: { payment_information: "text" },

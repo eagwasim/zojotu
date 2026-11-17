@@ -15,6 +15,7 @@ import {
   CONDITIONS,
   MOVEMENTS,
   SETTABLE_STATUSES,
+  isClosedStatus,
   watchSchema,
 } from "@/lib/validators/watch";
 import {
@@ -41,6 +42,8 @@ export interface WatchRecord {
   askingPrice?: number | null;
   listedDate?: string | null;
   listedPlatform?: string | null;
+  writtenOffDate?: string | null;
+  writtenOffReason?: string | null;
 }
 
 interface FormState {
@@ -146,7 +149,8 @@ export function WatchFormSheet({ open, onClose, watch, onSaved }: WatchFormSheet
   const sources = useSuggestions("source");
   const platforms = useSuggestions("platform");
   const editing = !!watch;
-  const isSold = watch?.status === "Sold";
+  // Sold and written-off watches keep their status; it's changed from the watch page.
+  const closedStatus = watch && isClosedStatus(watch.status) ? watch.status : null;
 
   const [form, setForm] = useState<FormState>(() => blank());
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -227,8 +231,8 @@ export function WatchFormSheet({ open, onClose, watch, onSaved }: WatchFormSheet
     }
   };
 
-  const statusOptions = isSold
-    ? [{ value: "Sold", label: "Sold" }]
+  const statusOptions = closedStatus
+    ? [{ value: closedStatus, label: closedStatus }]
     : SETTABLE_STATUSES.map((s) => ({ value: s, label: s }));
 
   return (
@@ -366,8 +370,14 @@ export function WatchFormSheet({ open, onClose, watch, onSaved }: WatchFormSheet
             onChange={(e) => set("status", e.target.value)}
             options={statusOptions}
             placeholder={false}
-            disabled={isSold}
-            hint={isSold ? "Sold comes from the sale record. Delete the sale to change it." : undefined}
+            disabled={!!closedStatus}
+            hint={
+              closedStatus === "Sold"
+                ? "Sold comes from the sale record. Delete the sale to change it."
+                : closedStatus
+                  ? "Restore it to stock from the watch page to change it."
+                  : undefined
+            }
           />
           {form.status === "Listed" && (
             <div className="grid grid-cols-2 gap-4 rounded-lg bg-secondary/60 p-4">
