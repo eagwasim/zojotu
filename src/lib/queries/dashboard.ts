@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { watches, parts, sales, expenses, serviceJobs, serviceJobParts } from "../db/schema";
 import { eq, sql, and, ne } from "drizzle-orm";
+import { saleFees, saleProfit } from "../profit";
 
 export interface SalesVelocity {
   bestMonth: { month: string; profit: number } | null;
@@ -112,6 +113,7 @@ export async function getDashboardKPIs(period?: {
   const unsoldWatches = allWatches.filter((w: any) => w.status !== "Sold");
 
   let grossRevenue = 0;
+  let totalSaleFees = 0;
   let totalCogs = 0;
   let totalDays = 0;
   let salesCount = 0;
@@ -135,22 +137,24 @@ export async function getDashboardKPIs(period?: {
       daysToSellList.push(days);
       salesCount++;
 
-      const saleProfit = sale.grossSalePrice - watchCogs;
+      const fees = saleFees(sale);
+      totalSaleFees += fees;
+      const profit = saleProfit(sale, watchCogs);
       const brandEntry = brandProfitMap.get(watch.brand) || { totalProfit: 0, unitsSold: 0 };
-      brandEntry.totalProfit += saleProfit;
+      brandEntry.totalProfit += profit;
       brandEntry.unitsSold += 1;
       brandProfitMap.set(watch.brand, brandEntry);
 
-      const fees = (sale.platformFee || 0) + (sale.shippingInsurance || 0);
       const platEntry = platformMap.get(sale.platform) || { revenue: 0, profit: 0, fees: 0 };
       platEntry.revenue += sale.grossSalePrice;
-      platEntry.profit += sale.grossSalePrice - watchCogs - fees;
+      platEntry.profit += profit;
       platEntry.fees += fees;
       platformMap.set(sale.platform, platEntry);
     }
   }
 
-  const grossProfit = grossRevenue - totalCogs;
+  // Profit before operating expenses: sale price − fees & shipping − cost basis.
+  const grossProfit = grossRevenue - totalSaleFees - totalCogs;
   const marginPercent = grossRevenue > 0 ? grossProfit / grossRevenue : 0;
   const roiPercent = totalCogs > 0 ? grossProfit / totalCogs : 0;
   const avgDaysToSell = salesCount > 0 ? totalDays / salesCount : 0;
@@ -171,24 +175,25 @@ export async function getDashboardKPIs(period?: {
     ([status, count]) => ({ status, count })
   );
 
-  const monthlyMap = new Map<string, { revenue: number; cogs: number }>();
+  const monthlyMap = new Map<string, { revenue: number; cogs: number; fees: number }>();
   for (const sale of allSales) {
     const month = sale.saleDate.substring(0, 7);
-    const entry = monthlyMap.get(month) || { revenue: 0, cogs: 0 };
+    const entry = monthlyMap.get(month) || { revenue: 0, cogs: 0, fees: 0 };
     entry.revenue += sale.grossSalePrice;
     const watch = allWatches.find((w: any) => w.id === sale.watchId);
     if (watch) {
       entry.cogs += watch.baseCost + (partsPerWatch.get(watch.id) || 0);
+      entry.fees += saleFees(sale);
     }
     monthlyMap.set(month, entry);
   }
   const monthlyProfits = Array.from(monthlyMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, { revenue, cogs }]) => ({
+    .map(([month, { revenue, cogs, fees }]) => ({
       month,
       revenue,
       cogs,
-      profit: revenue - cogs,
+      profit: revenue - fees - cogs,
     }));
 
   // Sales Velocity

@@ -2,6 +2,7 @@ import { db } from "../db";
 import { watches, parts, sales } from "../db/schema";
 import { eq, sql, desc, and, or } from "drizzle-orm";
 import { paginatedResult, type PaginatedResult } from "./pagination";
+import { saleNetRevenue, saleProfit } from "../profit";
 
 export async function getAllWatches(status?: string) {
   const query = db.select().from(watches).orderBy(desc(watches.createdAt));
@@ -113,10 +114,8 @@ export async function getWatchWithEconomics(id: number) {
 
   const totalPartsCost = watchParts.reduce((sum: number, p: any) => sum + p.cost, 0);
   const totalCogs = watch.baseCost + totalPartsCost;
-  const netRevenue = sale
-    ? sale.grossSalePrice - sale.platformFee - sale.shippingInsurance
-    : 0;
-  const unitNetProfit = sale ? netRevenue - totalCogs : 0;
+  const netRevenue = sale ? saleNetRevenue(sale) : 0;
+  const unitNetProfit = sale ? saleProfit(sale, totalCogs) : 0;
   const unitRoi = sale && totalCogs > 0 ? unitNetProfit / totalCogs : 0;
 
   let daysInInventory: number | null = null;
